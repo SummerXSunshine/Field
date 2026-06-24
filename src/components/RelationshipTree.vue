@@ -5,7 +5,10 @@
     :class="{ 'relationship-tree--dragging': dragState.active }"
     role="img"
     aria-label="人物关系树"
+    draggable="false"
     @mousedown="handleDragStart"
+    @dragstart.prevent
+    @wheel.prevent="handleWheel"
   >
     <div class="relationship-tree__stage" :style="stageStyle">
       <svg class="relationship-tree__canvas" :viewBox="viewBox" :style="canvasStyle">
@@ -30,8 +33,8 @@
               :stroke="edge.style && edge.style.stroke ? edge.style.stroke : '#57708f'"
               :stroke-width="edge.style && edge.style.strokeWidth ? edge.style.strokeWidth : 2"
               :stroke-dasharray="edge.style && edge.style.strokeDasharray"
+              :marker-end="edge.to && edge.to.isTagGroup ? undefined : 'url(#relationship-arrow-vue2)'"
               fill="none"
-              marker-end="url(#relationship-arrow-vue2)"
             />
             <g v-if="edge.style && edge.style.label" class="relationship-tree__edge-label">
               <rect
@@ -69,8 +72,8 @@
               'relationship-tree__node--avatar': node.variant === 'avatar',
               'relationship-tree__node--tag-group': node.isTagGroup,
             }"
-            :style="node.style"
-            @click="$emit('node-click', node)"
+            :style="relationNodeStyle(node)"
+            @click="handleNodeClick($event, node)"
           >
             <slot name="node" :node="node">
               <template v-if="node.variant === 'avatar'">
@@ -82,15 +85,15 @@
               </template>
               <template v-else>
                 <img v-if="node.avatar" class="relationship-tree__avatar" :src="node.avatar" alt="" />
-                <div class="relationship-tree__content">
+                <div class="relationship-tree__content" :title="node.name">
                   <strong>{{ node.name }}</strong>
                 </div>
               </template>
               <button
-                v-if="hasChildren(node)"
+                v-if="enableCollapse && node.depth > 0 && hasChildren(node)"
                 type="button"
                 class="relationship-tree__collapse"
-                :aria-label="isCollapsed(node) ? '展开 ' + node.name : '折叠 ' + node.name"
+                :aria-label="isCollapsed(node) ? ' ' + node.name : ' ' + node.name"
                 @click.stop="$emit('toggle-collapse', node)"
               >
                 {{ isCollapsed(node) ? '+' : '-' }}
@@ -106,23 +109,25 @@
 <script>
 export default {
   name: 'RelationshipTree',
-  data: function () {
+  data() {
     return {
       dragState: {
         active: false,
         moved: false,
+        panX: 0,
+        panY: 0,
         startX: 0,
         startY: 0,
-        startScrollLeft: 0,
-        startScrollTop: 0,
+        startPanX: 0,
+        startPanY: 0,
       },
     };
   },
-  mounted: function () {
+  mounted() {
     window.addEventListener('mousemove', this.handleDragMove);
     window.addEventListener('mouseup', this.handleDragEnd);
   },
-  beforeDestroy: function () {
+  beforeDestroy() {
     window.removeEventListener('mousemove', this.handleDragMove);
     window.removeEventListener('mouseup', this.handleDragEnd);
   },
@@ -137,13 +142,25 @@ export default {
     },
     collapsedNodeIds: {
       type: Array,
-      default: function () {
+      default() {
         return [];
       },
+    },
+    enableCollapse: {
+      type: Boolean,
+      default: true,
     },
     zoom: {
       type: Number,
       default: 1,
+    },
+    minZoom: {
+      type: Number,
+      default: 0.4,
+    },
+    maxZoom: {
+      type: Number,
+      default: 2,
     },
     nodeWidth: {
       type: Number,
@@ -161,24 +178,63 @@ export default {
       type: Number,
       default: 34,
     },
+    avatarNodeWidth: {
+      type: Number,
+      default: 96,
+    },
+    avatarNodeHeight: {
+      type: Number,
+      default: 84,
+    },
+    relationGroupLineWidth: {
+      type: Number,
+      default: 220,
+    },
+    relationGroupLineHeight: {
+      type: Number,
+      default: 32,
+    },
+    relationGroupRootGap: {
+      type: Number,
+      default: 96,
+    },
+    relationGroupChildGap: {
+      type: Number,
+      default: 96,
+    },
   },
   computed: {
-    collapsedNodeIdSet: function () {
+    collapsedNodeIdSet() {
+      if (!this.enableCollapse) {
+        return new Set();
+      }
+
       return new Set(this.collapsedNodeIds);
     },
-    groupedRoot: function () {
-      var root = this.root || {};
-      var children = root.children || [];
-      var groups = [];
-      var groupMap = Object.create(null);
+    groupedRoot() {
+      const root = this.root || {};
+      const children = root.children || [];
+      const groups = [];
+      const groupMap = Object.create(null);
 
-      children.forEach(function (child, index) {
-        var tag = child.tag && String(child.tag).trim() ? String(child.tag).trim() : '未分组';
+      children.forEach((child, index) => {
+        const tag = child.tag && String(child.tag).trim() ? String(child.tag).trim() : '';
         if (!groupMap[tag]) {
+          const edge = child.edge || {};
           groupMap[tag] = {
             id: '__tag_group__' + tag + '__' + index,
             name: tag,
             isTagGroup: true,
+            style: {
+              '--relationship-group-color': edge.stroke || '#57708f',
+              '--relationship-group-label-bg': edge.labelBackground || '#ffffff',
+              '--relationship-group-label-color': edge.labelColor || edge.stroke || '#344054',
+            },
+            edge: {
+              stroke: edge.stroke || '#57708f',
+              strokeWidth: edge.strokeWidth || 1,
+              strokeDasharray: edge.strokeDasharray,
+            },
             children: [],
           };
           groups.push(groupMap[tag]);
@@ -190,31 +246,62 @@ export default {
         children: groups,
       });
     },
-    treeLayout: function () {
-      var nodes = [];
-      var edges = [];
-      var nextLeafY = { value: 0 };
-      var self = this;
+    treeLayout() {
+      const nodes = [];
+      const edges = [];
+      const nextLeafY = { value: 0 };
+      const rootWidth =
+        this.groupedRoot.width ||
+        (this.groupedRoot.variant === 'avatar' ? this.avatarNodeWidth : this.nodeWidth);
+      const groupX = rootWidth + this.relationGroupRootGap;
+      const levelWidth = this.nodeWidth + this.levelGap;
+      const nodeX = depth => {
+        if (depth === 0) {
+          return 0;
+        }
 
-      function measure(node, depth) {
-        var children = self.collapsedNodeIdSet.has(node.id) ? [] : (node.children || []);
-        var laidOutChildren = children.map(function (child) {
-          return measure(child, depth + 1);
-        });
-        var y =
+        return groupX + (depth - 1) * levelWidth + (depth > 1 ? this.relationGroupChildGap : 0);
+      };
+
+      const measure = (node, depth) => {
+        const children = this.collapsedNodeIdSet.has(node.id) ? [] : (node.children || []);
+        const laidOutChildren = children.map(child => measure(child, depth + 1));
+        const width =
+          node.width ||
+          (node.isTagGroup
+            ? this.relationGroupLineWidth
+            : node.variant === 'avatar'
+              ? this.avatarNodeWidth
+              : this.nodeWidth);
+        const height =
+          node.height ||
+          (node.isTagGroup
+            ? this.relationGroupLineHeight
+            : node.variant === 'avatar'
+              ? this.avatarNodeHeight
+              : this.nodeHeight);
+        const y =
           laidOutChildren.length > 0
-            ? (laidOutChildren[0].y + laidOutChildren[laidOutChildren.length - 1].y) / 2
-            : nextLeafY.value++ * (self.nodeHeight + self.siblingGap);
-        var positioned = Object.assign({}, node, {
-          depth: depth,
-          x: depth * (self.nodeWidth + self.levelGap),
-          y: y,
-          width: self.nodeWidth,
-          height: self.nodeHeight,
+            ? (laidOutChildren[0].y +
+                laidOutChildren[0].height / 2 +
+                laidOutChildren[laidOutChildren.length - 1].y +
+                laidOutChildren[laidOutChildren.length - 1].height / 2) /
+                2 -
+              height / 2
+            : nextLeafY.value;
+        if (laidOutChildren.length === 0) {
+          nextLeafY.value += height + this.siblingGap;
+        }
+        const positioned = Object.assign({}, node, {
+          depth,
+          x: nodeX(depth),
+          y,
+          width,
+          height,
         });
 
         nodes.push(positioned);
-        laidOutChildren.forEach(function (child) {
+        laidOutChildren.forEach(child => {
           edges.push({
             id: positioned.id + '-' + child.id,
             from: positioned,
@@ -224,46 +311,41 @@ export default {
         });
 
         return positioned;
-      }
+      };
 
       measure(this.groupedRoot, 0);
 
-      var padding = 32;
-      var maxX = Math.max.apply(
+      const padding = 32;
+      const maxX = Math.max.apply(
         Math,
-        nodes.map(function (node) {
-          return node.x + node.width;
-        }).concat([0]),
+        nodes.map(node => node.x + node.width).concat([0]),
       );
-      var maxY = Math.max.apply(
+      const maxY = Math.max.apply(
         Math,
-        nodes.map(function (node) {
-          return node.y + node.height;
-        }).concat([0]),
+        nodes.map(node => node.y + node.height).concat([0]),
       );
 
       return {
-        nodes: nodes.map(function (node) {
-          return Object.assign({}, node, {
-            x: node.x + padding,
-            y: node.y + padding,
-          });
-        }),
-        edges: edges,
+        nodes: nodes.map(node => Object.assign({}, node, {
+          x: node.x + padding,
+          y: node.y + padding,
+        })),
+        edges,
         width: maxX + padding * 2,
         height: maxY + padding * 2,
       };
     },
-    viewBox: function () {
+    viewBox() {
       return '0 0 ' + this.treeLayout.width + ' ' + this.treeLayout.height;
     },
-    stageStyle: function () {
+    stageStyle() {
       return {
         width: this.treeLayout.width * this.zoom + 'px',
         height: this.treeLayout.height * this.zoom + 'px',
+        transform: 'translate(' + this.dragState.panX + 'px, ' + this.dragState.panY + 'px)',
       };
     },
-    canvasStyle: function () {
+    canvasStyle() {
       return {
         width: this.treeLayout.width + 'px',
         height: this.treeLayout.height + 'px',
@@ -272,21 +354,134 @@ export default {
     },
   },
   methods: {
-    handleDragStart: function (event) {
+    highlightSignalStyle(node) {
+      const signal = node.highlightSignal;
+      if (!signal) {
+        return null;
+      }
+
+      if (typeof signal === 'object') {
+        return {
+          background: signal.background,
+          color: signal.color,
+          borderColor: signal.borderColor || signal.color,
+          '--relationship-node-bg': signal.background,
+          '--relationship-node-text': signal.color,
+          '--relationship-node-color': signal.borderColor || signal.color,
+        };
+      }
+
+      const presets = {
+        high: {
+          background: '#fef2f2',
+          color: '#991b1b',
+          borderColor: '#ef4444',
+        },
+        medium: {
+          background: '#fff1f2',
+          color: '#be123c',
+          borderColor: '#fb7185',
+        },
+        low: {
+          background: '#fff5f5',
+          color: '#b91c1c',
+          borderColor: '#fca5a5',
+        },
+      };
+      const preset = presets[signal];
+
+      if (!preset) {
+        return null;
+      }
+
+      return {
+        background: preset.background,
+        color: preset.color,
+        borderColor: preset.borderColor,
+        '--relationship-node-bg': preset.background,
+        '--relationship-node-text': preset.color,
+        '--relationship-node-color': preset.borderColor,
+      };
+    },
+    relationNodeStyle(node) {
+      if (!node.edge || node.isTagGroup) {
+        return node.style;
+      }
+
+      const relationColor = node.edge.stroke || '#57708f';
+      const relationBackground = node.edge.labelBackground || '#ffffff';
+      const relationTextColor = node.edge.labelColor || relationColor;
+
+      return Object.assign(
+        {
+          '--relationship-node-color': relationColor,
+          '--relationship-node-bg': relationBackground,
+          '--relationship-node-text': relationTextColor,
+          borderColor: relationColor,
+          background: relationBackground,
+          color: relationTextColor,
+          boxShadow: '0 10px 24px rgba(16, 24, 40, 0.1)',
+        },
+        this.highlightSignalStyle(node) || {},
+        node.style || {},
+      );
+    },
+    clampZoom(zoom) {
+      return Math.min(this.maxZoom, Math.max(this.minZoom, zoom));
+    },
+    fitToView() {
+      const viewport = this.$refs.viewport;
+      if (!viewport || !this.treeLayout.width || !this.treeLayout.height) {
+        return;
+      }
+
+      const viewportWidth = viewport.clientWidth;
+      const viewportHeight = viewport.clientHeight;
+      if (!viewportWidth || !viewportHeight) {
+        return;
+      }
+
+      const paddingRatio = 0.9;
+      const fitZoom = Math.min(viewportWidth / this.treeLayout.width, viewportHeight / this.treeLayout.height);
+      const nextZoom = this.clampZoom(Number((fitZoom * paddingRatio).toFixed(3)));
+
+      this.dragState.panX = (viewportWidth - this.treeLayout.width * nextZoom) / 2;
+      this.dragState.panY = (viewportHeight - this.treeLayout.height * nextZoom) / 2;
+      this.$emit('zoom-change', nextZoom);
+    },
+    handleWheel(event) {
+      const viewport = this.$refs.viewport;
+      if (!viewport) {
+        return;
+      }
+
+      const currentZoom = this.clampZoom(this.zoom);
+      const zoomStep = event.deltaY > 0 ? 0.9 : 1.1;
+      const nextZoom = this.clampZoom(Number((currentZoom * zoomStep).toFixed(3)));
+      if (nextZoom === currentZoom) {
+        return;
+      }
+
+      const rect = viewport.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const contentX = (pointerX - this.dragState.panX) / currentZoom;
+      const contentY = (pointerY - this.dragState.panY) / currentZoom;
+
+      this.dragState.panX = pointerX - contentX * nextZoom;
+      this.dragState.panY = pointerY - contentY * nextZoom;
+      this.$emit('zoom-change', nextZoom);
+    },
+    handleDragStart(event) {
       if (event.button !== 0) {
         return;
       }
 
-      var interactiveTarget = event.target.closest(
-        '.relationship-tree__node, .relationship-tree__collapse, button, a, input, textarea, select',
+      const interactiveTarget = event.target.closest(
+        '.relationship-tree__collapse, button, a, input, textarea, select',
       );
 
       if (interactiveTarget) {
-        return;
-      }
-
-      var viewport = this.$refs.viewport;
-      if (!viewport) {
         return;
       }
 
@@ -294,67 +489,79 @@ export default {
       this.dragState.moved = false;
       this.dragState.startX = event.clientX;
       this.dragState.startY = event.clientY;
-      this.dragState.startScrollLeft = viewport.scrollLeft;
-      this.dragState.startScrollTop = viewport.scrollTop;
+      this.dragState.startPanX = this.dragState.panX;
+      this.dragState.startPanY = this.dragState.panY;
 
       event.preventDefault();
     },
-    handleDragMove: function (event) {
+    handleDragMove(event) {
       if (!this.dragState.active) {
         return;
       }
 
-      var viewport = this.$refs.viewport;
-      if (!viewport) {
-        return;
-      }
-
-      var deltaX = event.clientX - this.dragState.startX;
-      var deltaY = event.clientY - this.dragState.startY;
+      const deltaX = event.clientX - this.dragState.startX;
+      const deltaY = event.clientY - this.dragState.startY;
 
       if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
         this.dragState.moved = true;
       }
 
-      viewport.scrollLeft = this.dragState.startScrollLeft - deltaX;
-      viewport.scrollTop = this.dragState.startScrollTop - deltaY;
+      this.dragState.panX = this.dragState.startPanX + deltaX;
+      this.dragState.panY = this.dragState.startPanY + deltaY;
 
       event.preventDefault();
     },
-    handleDragEnd: function () {
+    handleDragEnd() {
       if (!this.dragState.active) {
         return;
       }
 
       this.dragState.active = false;
     },
-    edgePath: function (edge) {
-      var fromX = edge.from.x + edge.from.width + 32;
-      var fromY = edge.from.y + edge.from.height / 2 + 32;
-      var toX = edge.to.x + 32;
-      var toY = edge.to.y + edge.to.height / 2 + 32;
-      var elbowX = fromX + Math.min(48, Math.max(24, (toX - fromX) / 2));
+    handleNodeClick(event, node) {
+      if (this.dragState.moved) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragState.moved = false;
+        return;
+      }
+
+      this.$emit('node-click', node);
+    },
+    nodeAnchorY(node) {
+      const avatarCircleSize = 58;
+      const avatarAnchorOffset = avatarCircleSize / 2;
+      const anchorOffset = node.variant === 'avatar' ? avatarAnchorOffset : node.height / 2;
+
+      return node.y + anchorOffset + 32;
+    },
+    edgePath(edge) {
+      const fromX = edge.from.x + edge.from.width + 32;
+      const fromY = this.nodeAnchorY(edge.from);
+      const toX = edge.to.x + 32;
+      const toY = this.nodeAnchorY(edge.to);
+      const elbowX = fromX + Math.min(48, Math.max(24, (toX - fromX) / 2));
 
       return 'M ' + fromX + ' ' + fromY + ' H ' + elbowX + ' V ' + toY + ' H ' + toX;
     },
-    edgeLabelPoint: function (edge) {
-      var fromX = edge.from.x + edge.from.width + 32;
-      var toX = edge.to.x + 32;
-      var toY = edge.to.y + edge.to.height / 2 + 32;
-      var elbowX = fromX + Math.min(48, Math.max(24, (toX - fromX) / 2));
+    edgeLabelPoint(edge) {
+      const fromX = edge.from.x + edge.from.width + 32;
+      const toX = edge.to.x + 32;
+      const toY = this.nodeAnchorY(edge.to);
+      const elbowX = fromX + Math.min(48, Math.max(24, (toX - fromX) / 2));
 
       return {
         x: (elbowX + toX) / 2,
         y: toY - 16,
       };
     },
-    hasChildren: function (node) {
+    hasChildren(node) {
       return Boolean(node.children && node.children.length);
     },
-    isCollapsed: function (node) {
+    isCollapsed(node) {
       return this.collapsedNodeIdSet.has(node.id);
     },
-    nodeInitial: function (node) {
+    nodeInitial(node) {
       return (node.name || '').trim().slice(0, 1).toUpperCase();
     },
   },
@@ -365,7 +572,7 @@ export default {
 .relationship-tree {
   width: 100%;
   min-height: 480px;
-  overflow: auto;
+  overflow: hidden;
   background:
     linear-gradient(#eef2f7 1px, transparent 1px),
     linear-gradient(90deg, #eef2f7 1px, transparent 1px),
@@ -391,6 +598,8 @@ export default {
 .relationship-tree__stage {
   min-width: 100%;
   min-height: 100%;
+  transform-origin: top left;
+  will-change: transform;
 }
 
 .relationship-tree__edges path {
@@ -427,7 +636,7 @@ export default {
 
 .relationship-tree__collapse {
   position: absolute;
-  right: -10px;
+  right: 0;
   top: 50%;
   width: 22px;
   height: 22px;
@@ -451,27 +660,63 @@ export default {
   background: #f0fdfa;
 }
 
+.relationship-tree__node--avatar .relationship-tree__collapse {
+  right: 7px;
+  top: 29px;
+}
+
 .relationship-tree__node--tag-group {
   grid-template-columns: 1fr;
   justify-items: center;
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  box-shadow: none;
+  color: var(--relationship-group-label-color, #344054);
+  cursor: grab;
+}
+
+.relationship-tree__node--tag-group::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--relationship-group-color, #57708f);
+  transform: translateY(-50%);
 }
 
 .relationship-tree__node--tag-group .relationship-tree__content {
-  width: 100%;
+  position: relative;
+  z-index: 1;
+  width: auto;
+  max-width: 100%;
   text-align: center;
 }
 
 .relationship-tree__node--tag-group .relationship-tree__content strong {
-  font-size: 14px;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 10px;
+  border: 1px solid var(--relationship-group-color, #57708f);
+  border-radius: 999px;
+  background: var(--relationship-group-label-bg, #ffffff);
+  color: var(--relationship-group-label-color, #344054);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .relationship-tree__node--selected {
-  outline: 3px solid rgba(15, 118, 110, 0.28);
-  outline-offset: -3px;
+  outline: 3px solid rgba(14, 116, 144, 0.35);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 0 0 6px rgba(14, 116, 144, 0.18),
+    0 14px 30px rgba(16, 24, 40, 0.18);
 }
 
 .relationship-tree__node--avatar {
@@ -489,28 +734,43 @@ export default {
 .relationship-tree__node--avatar.relationship-tree__node--tag-group {
   grid-template-columns: 1fr;
   justify-items: center;
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+  border: 0;
+  background: transparent !important;
+  color: var(--relationship-group-label-color, #344054);
+  box-shadow: none;
 }
 
 .relationship-tree__node--tag-group .relationship-tree__content {
-  width: 100%;
+  width: auto;
   text-align: center;
 }
 
 .relationship-tree__node--tag-group .relationship-tree__content strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
-.relationship-tree__node--selected {
+.relationship-tree__node--tag-group.relationship-tree__node--selected {
   outline: none;
+  box-shadow: none;
+}
+
+.relationship-tree__node--tag-group.relationship-tree__node--selected .relationship-tree__content strong {
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.95),
+    0 0 0 6px rgba(14, 116, 144, 0.22);
+}
+
+.relationship-tree__node--avatar.relationship-tree__node--selected {
+  outline: none;
+  box-shadow: none;
 }
 
 .relationship-tree__node--avatar.relationship-tree__node--selected .relationship-tree__avatar-node {
-  outline: 3px solid rgba(15, 118, 110, 0.3);
-  outline-offset: 3px;
+  outline: 3px solid rgba(14, 116, 144, 0.45);
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 14px 28px rgba(16, 24, 40, 0.2);
 }
 
 .relationship-tree__avatar-node {
@@ -519,11 +779,11 @@ export default {
   display: grid;
   place-items: center;
   overflow: hidden;
-  border: 3px solid #ffffff;
+  border: 3px solid var(--relationship-node-color, #ffffff);
   border-radius: 999px;
-  background: #e0f2fe;
+  background: var(--relationship-node-bg, #e0f2fe);
   box-shadow: 0 12px 24px rgba(16, 24, 40, 0.16);
-  color: #0369a1;
+  color: var(--relationship-node-text, #0369a1);
   font-size: 22px;
   font-weight: 800;
 }
