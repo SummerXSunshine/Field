@@ -263,6 +263,11 @@ export default {
         return groupX + (depth - 1) * levelWidth + (depth > 1 ? this.relationGroupChildGap : 0);
       };
 
+      const anchorOffsetFor = (node, height) => {
+        const avatarCircleSize = 58;
+        return node.variant === 'avatar' ? avatarCircleSize / 2 : height / 2;
+      };
+
       const measure = (node, depth) => {
         const children = this.collapsedNodeIdSet.has(node.id) ? [] : (node.children || []);
         const laidOutChildren = children.map(child => measure(child, depth + 1));
@@ -280,14 +285,15 @@ export default {
             : node.variant === 'avatar'
               ? this.avatarNodeHeight
               : this.nodeHeight);
+        const anchorOffset = anchorOffsetFor(node, height);
         const y =
           laidOutChildren.length > 0
             ? (laidOutChildren[0].y +
-                laidOutChildren[0].height / 2 +
+                laidOutChildren[0].anchorOffset +
                 laidOutChildren[laidOutChildren.length - 1].y +
-                laidOutChildren[laidOutChildren.length - 1].height / 2) /
+                laidOutChildren[laidOutChildren.length - 1].anchorOffset) /
                 2 -
-              height / 2
+              anchorOffset
             : nextLeafY.value;
         if (laidOutChildren.length === 0) {
           nextLeafY.value += height + this.siblingGap;
@@ -298,6 +304,7 @@ export default {
           y,
           width,
           height,
+          anchorOffset,
         });
 
         nodes.push(positioned);
@@ -529,9 +536,7 @@ export default {
       this.$emit('node-click', node);
     },
     nodeAnchorY(node) {
-      const avatarCircleSize = 58;
-      const avatarAnchorOffset = avatarCircleSize / 2;
-      const anchorOffset = node.variant === 'avatar' ? avatarAnchorOffset : node.height / 2;
+      const anchorOffset = typeof node.anchorOffset === 'number' ? node.anchorOffset : node.height / 2;
 
       return node.y + anchorOffset + 32;
     },

@@ -14,30 +14,38 @@
       </div>
 
       <div class="relation-filter" aria-label="关系筛选">
-        <button
-          type="button"
-          class="relation-filter__option"
-          :class="{ 'relation-filter__option--active': selectedRelationLabels.length === 0 }"
-          @click="selectAllRelations"
-        >
-          全部关系
-        </button>
+        <label class="relation-filter__field">
+          <span>层级</span>
+          <select v-model.number="filters.maxDepth">
+            <option v-for="level in levelOptions" :key="level" :value="level">
+              {{ level }} 层
+            </option>
+          </select>
+        </label>
 
-        <button
-          v-for="label in relationOptions"
-          :key="label"
-          type="button"
-          class="relation-filter__option"
-          :class="{ 'relation-filter__option--active': isRelationSelected(label) }"
-          :aria-pressed="isRelationSelected(label) ? 'true' : 'false'"
-          @click="toggleRelationFilter(label)"
-        >
-          {{ label }}
-        </button>
+        <label class="relation-filter__field relation-filter__field--text">
+          <span>标签</span>
+          <input v-model.trim="filters.tagText" type="search" placeholder="输入标签/关系/节点文本" />
+        </label>
+
+        <label class="relation-filter__field">
+          <span>开始时间</span>
+          <input v-model="filters.startDate" type="date" />
+        </label>
+
+        <label class="relation-filter__field">
+          <span>结束时间</span>
+          <input v-model="filters.endDate" type="date" />
+        </label>
+
+        <button type="button" class="relation-filter__reset" @click="resetFilters">重置</button>
       </div>
 
       <span v-if="selectedNode" class="selected-node">
         当前选择：{{ selectedNode.name }}
+        <em v-if="isNodeLoading(selectedNode.id)">加载中...</em>
+        <em v-else-if="isNodeLoaded(selectedNode.id)">已加载子节点</em>
+        <em v-else-if="canLoadChildren(selectedNode.id)">点击后可加载子节点</em>
       </span>
     </header>
 
@@ -66,7 +74,7 @@
 
 <script>
 import RelationshipTree from './components/RelationshipTree.vue'
-import { collectRelationOptions, filterTreeByRelations } from './utils/relationFilter'
+import { filterRelationshipTree } from './utils/relationFilter'
 
 export default {
   name: 'App',
@@ -117,11 +125,76 @@ export default {
       selectedNodeId: '',
       selectedNode: null,
       collapsedNodeIds: [],
+      loadingNodeIds: [],
+      loadedNodeIds: [],
       enableCollapse: true,
-      selectedRelationLabels: [],
+      filters: {
+        maxDepth: 10,
+        tagText: '',
+        startDate: '',
+        endDate: ''
+      },
+      externalChildrenMap: {
+        'phone-contact-4': [
+          {
+            id: 'phone-contact-4-detail-1',
+            eventDate: '2026-03-04',
+            name: '短信号码 13800138001',
+            subtitle: '外部加载：短信 7 条',
+            tag: '通联关系',
+            highlightSignal: 'low',
+            edge: createEdge('contact', '短信')
+          },
+          {
+            id: 'phone-contact-4-detail-2',
+            eventDate: '2026-03-05',
+            name: '短信号码 13800138002',
+            subtitle: '外部加载：短信 5 条',
+            tag: '通联关系',
+            edge: createEdge('contact', '短信')
+          }
+        ],
+        'wechat-friend': [
+          {
+            id: 'wechat-friend-detail-1',
+            eventDate: '2026-03-20',
+            name: '共同好友：陆远',
+            subtitle: '外部加载：共同好友',
+            tag: '微信好友',
+            edge: createEdge('wechat', '共同好友')
+          },
+          {
+            id: 'wechat-friend-detail-2',
+            eventDate: '2026-03-21',
+            name: '共同群：项目二群',
+            subtitle: '外部加载：微信群',
+            tag: '微信好友',
+            edge: createEdge('wechat', '群聊')
+          }
+        ],
+        colleague: [
+          {
+            id: 'colleague-detail-1',
+            eventDate: '2026-05-04',
+            name: '技术部成员 A',
+            subtitle: '外部加载：下属',
+            tag: '同行关系',
+            edge: createEdge('peer', '同部门')
+          },
+          {
+            id: 'colleague-detail-2',
+            eventDate: '2026-05-05',
+            name: '技术部成员 B',
+            subtitle: '外部加载：协作',
+            tag: '同行关系',
+            edge: createEdge('peer', '协作')
+          }
+        ]
+      },
 
       relationshipData: {
         id: 'zhang-san',
+        eventDate: '2026-01-01',
         name: '张三',
         subtitle: '核心人物',
         tag: '本人',
@@ -135,6 +208,7 @@ export default {
         children: [
           {
             id: 'father',
+            eventDate: '2026-01-03',
             name: '张建国',
             subtitle: '父亲',
             tag: '亲属关系',
@@ -144,6 +218,7 @@ export default {
             children: [
               {
                 id: 'grandfather',
+            eventDate: '2026-01-04',
                 name: '张德福',
                 subtitle: '祖父',
 
@@ -152,6 +227,7 @@ export default {
 
               {
                 id: 'grandmother',
+            eventDate: '2026-01-05',
                 name: '王秀兰',
                 subtitle: '祖母',
 
@@ -162,6 +238,7 @@ export default {
 
           {
             id: 'mother',
+            eventDate: '2026-01-06',
             name: '李芳',
             subtitle: '母亲',
             tag: '亲属关系',
@@ -171,6 +248,7 @@ export default {
 
           {
             id: 'wife',
+            eventDate: '2026-01-08',
             name: '王晓梅',
             subtitle: '配偶',
             tag: '亲属关系',
@@ -180,6 +258,7 @@ export default {
             children: [
               {
                 id: 'son',
+            eventDate: '2026-01-10',
                 name: '张小明',
                 subtitle: '儿子',
                 variant: 'avatar',
@@ -189,6 +268,7 @@ export default {
 
               {
                 id: 'daughter',
+            eventDate: '2026-01-12',
                 name: '张小雨',
                 subtitle: '女儿',
                 variant: 'avatar',
@@ -200,6 +280,7 @@ export default {
 
           {
             id: 'phone-contact-3',
+            eventDate: '2026-02-15',
             name: '朝鲜电话（189098789078）',
             subtitle: '夜间高频联系人',
             tag: '通联关系',
@@ -210,6 +291,7 @@ export default {
             children: [
               {
                 id: 'phone-contact-3-helper',
+            eventDate: '2026-02-16',
                 name: '吴倩助理',
                 subtitle: '代接电话 4 次',
                 highlightSignal: 'low',
@@ -221,7 +303,8 @@ export default {
 
           {
             id: 'phone-contact-4',
-            name: '朝鲜电话（189098789075）',
+            eventDate: '2026-03-03',
+            name: '高亮节点',
             subtitle: '短信往来 12 条',
             tag: '通联关系',
             highlightSignal: 'medium',
@@ -231,6 +314,7 @@ export default {
 
           {
             id: 'wechat-friend',
+            eventDate: '2026-03-18',
             name: '陈晨',
             subtitle: '微信好友',
             tag: '微信好友',
@@ -240,6 +324,7 @@ export default {
 
           {
             id: 'wechat-friend-2',
+            eventDate: '2026-03-22',
             name: '黄雅',
             subtitle: '共同群聊 3 个',
             tag: '微信好友',
@@ -249,6 +334,7 @@ export default {
 
           {
             id: 'wechat-friend-3',
+            eventDate: '2026-04-06',
             name: '林凯',
             subtitle: '转账往来 5 笔',
             tag: '微信好友',
@@ -258,6 +344,7 @@ export default {
             children: [
               {
                 id: 'wechat-friend-3-group',
+            eventDate: '2026-04-08',
                 name: '项目沟通群',
                 subtitle: '共同微信群',
 
@@ -268,6 +355,7 @@ export default {
 
           {
             id: 'wechat-friend-4',
+            eventDate: '2026-04-21',
             name: '马宁',
             subtitle: '最近互动 9 次',
             tag: '微信好友',
@@ -277,6 +365,7 @@ export default {
 
           {
             id: 'colleague',
+            eventDate: '2026-05-02',
             name: '赵强',
             subtitle: '技术部经理',
             tag: '同行关系',
@@ -286,6 +375,7 @@ export default {
 
           {
             id: 'colleague-2',
+            eventDate: '2026-05-09',
             name: '钱峰',
             subtitle: '同项目组成员',
             tag: '同行关系',
@@ -295,6 +385,7 @@ export default {
 
           {
             id: 'colleague-3',
+            eventDate: '2026-05-18',
             name: '郑琳',
             subtitle: '供应商接口人',
             tag: '同行关系',
@@ -304,6 +395,7 @@ export default {
             children: [
               {
                 id: 'colleague-3-company',
+            eventDate: '2026-05-20',
                 name: '星河科技',
                 subtitle: '合作单位',
 
@@ -314,6 +406,7 @@ export default {
 
           {
             id: 'colleague-4',
+            eventDate: '2026-06-02',
             name: '何宇',
             subtitle: '前同事',
             tag: '同行关系',
@@ -326,12 +419,12 @@ export default {
   },
 
   computed: {
-    relationOptions() {
-      return collectRelationOptions(this.relationshipData)
+    levelOptions() {
+      return Array.from({ length: 9 }, (_, index) => index + 2)
     },
 
     filteredRelationshipData() {
-      return filterTreeByRelations(this.relationshipData, this.selectedRelationLabels)
+      return filterRelationshipTree(this.relationshipData, this.filters)
     }
   },
 
@@ -339,6 +432,69 @@ export default {
     handleNodeClick(node) {
       this.selectedNodeId = node.id
       this.selectedNode = node
+      this.loadExternalChildren(node)
+    },
+
+    canLoadChildren(nodeId) {
+      const children = this.externalChildrenMap[nodeId]
+      return Boolean(children && children.length && this.loadedNodeIds.indexOf(nodeId) < 0)
+    },
+
+    isNodeLoading(nodeId) {
+      return this.loadingNodeIds.indexOf(nodeId) >= 0
+    },
+
+    isNodeLoaded(nodeId) {
+      return this.loadedNodeIds.indexOf(nodeId) >= 0
+    },
+
+    loadExternalChildren(node) {
+      if (!node || this.loadedNodeIds.indexOf(node.id) >= 0 || this.loadingNodeIds.indexOf(node.id) >= 0) {
+        return
+      }
+
+      const externalChildren = this.externalChildrenMap[node.id]
+      if (!externalChildren || externalChildren.length === 0) {
+        return
+      }
+
+      this.loadingNodeIds.push(node.id)
+      setTimeout(() => {
+        this.appendChildrenToNode(node.id, externalChildren)
+        this.loadedNodeIds.push(node.id)
+        const loadingIndex = this.loadingNodeIds.indexOf(node.id)
+        if (loadingIndex >= 0) {
+          this.loadingNodeIds.splice(loadingIndex, 1)
+        }
+      }, 300)
+    },
+
+    appendChildrenToNode(targetId, children) {
+      const appendTo = currentNode => {
+        if (!currentNode) {
+          return currentNode
+        }
+
+        if (currentNode.id === targetId) {
+          const existingChildren = currentNode.children || []
+          const existingIds = new Set(existingChildren.map(child => child.id))
+          const nextChildren = children.filter(child => !existingIds.has(child.id))
+
+          return Object.assign({}, currentNode, {
+            children: existingChildren.concat(nextChildren)
+          })
+        }
+
+        if (!currentNode.children || currentNode.children.length === 0) {
+          return currentNode
+        }
+
+        return Object.assign({}, currentNode, {
+          children: currentNode.children.map(appendTo)
+        })
+      }
+
+      this.relationshipData = appendTo(this.relationshipData)
     },
 
     toggleCollapse(node) {
@@ -351,21 +507,12 @@ export default {
       }
     },
 
-    isRelationSelected(label) {
-      return this.selectedRelationLabels.indexOf(label) >= 0
-    },
-
-    selectAllRelations() {
-      this.selectedRelationLabels = []
-    },
-
-    toggleRelationFilter(label) {
-      const index = this.selectedRelationLabels.indexOf(label)
-
-      if (index >= 0) {
-        this.selectedRelationLabels.splice(index, 1)
-      } else {
-        this.selectedRelationLabels.push(label)
+    resetFilters() {
+      this.filters = {
+        maxDepth: 10,
+        tagText: '',
+        startDate: '',
+        endDate: ''
       }
     },
 
@@ -446,21 +593,48 @@ button:hover {
   gap: 8px;
 }
 
-.relation-filter__option {
-  min-height: 34px;
-  padding: 6px 12px;
-  border-color: #d1d9e6;
-  color: #334155;
+.relation-filter__field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 13px;
 }
 
-.relation-filter__option--active {
-  border-color: #0f766e;
-  background: #ccfbf1;
-  color: #115e59;
+.relation-filter__field--text {
+  min-width: 260px;
+}
+
+.relation-filter__field select,
+.relation-filter__field input {
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #1e293b;
+  font: inherit;
+}
+
+.relation-filter__field--text input {
+  width: 100%;
+}
+
+.relation-filter__reset {
+  height: 34px;
+  padding: 0 12px;
 }
 
 .selected-node {
   color: #334155;
+}
+
+.selected-node em {
+  margin-left: 8px;
+  color: #0f766e;
+  font-style: normal;
+  font-size: 12px;
 }
 
 .tree-container {

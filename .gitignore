@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+*.tmp
+src.zip
+.DS_Store
