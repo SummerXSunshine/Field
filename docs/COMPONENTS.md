@@ -2,7 +2,7 @@
 
 ## RelationshipTree
 
-`src/components/RelationshipTree.vue` 是当前主用的关系树组件。它只负责渲染传入的树数据、处理视图交互和抛出事件，不直接请求外部接口，也不持有业务数据源。
+`src/components/RelationshipTree/RelationshipTree.vue` 是当前主用的关系树组件。它只负责渲染传入的树数据、处理视图交互和抛出事件，不直接请求外部接口，也不持有业务数据源。组件同目录文档见 `src/components/RelationshipTree/RelationshipTree.md`。
 
 ## 基本用法
 
@@ -16,6 +16,7 @@
   :zoom="zoom"
   :min-zoom="minZoom"
   :max-zoom="maxZoom"
+  :edge-label-background="false"
   :node-width="200"
   :node-height="41"
   :level-gap="136"

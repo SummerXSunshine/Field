@@ -17,7 +17,7 @@
             <path
               :d="edgePath(edge)"
               :stroke="edgeColor(edge)"
-              :stroke-width="edge.style && edge.style.strokeWidth ? edge.style.strokeWidth : 2"
+              :stroke-width="edgeStrokeWidth(edge)"
               :stroke-dasharray="edge.style && edge.style.strokeDasharray"
               fill="none"
             />
@@ -58,13 +58,7 @@
         >
           <div
             class="relationship-tree__node"
-            :class="{
-              'relationship-tree__node--selected': node.id === selectedNodeId,
-              [`relationship-tree__node--selected-${node.type}`]: node.id === selectedNodeId && node.type,
-              [`relationship-tree__node--${node.type}`]: node.type,
-              'relationship-tree__node--avatar': node.variant === 'avatar',
-              'relationship-tree__node--tag-group': node.isTagGroup,
-            }"
+            :class="nodeClass(node)"
             :style="relationNodeStyle(node)"
             @click="handleNodeClick($event, node)"
             @mouseenter="showNodePopover(node)"
@@ -182,14 +176,23 @@ export default {
     zoom: {
       type: Number,
       default: 1,
+      validator(value) {
+        return value > 0;
+      },
     },
     minZoom: {
       type: Number,
       default: 0.4,
+      validator(value) {
+        return value > 0;
+      },
     },
     maxZoom: {
       type: Number,
       default: 2,
+      validator(value) {
+        return value > 0;
+      },
     },
     edgeLabelBackground: {
       type: Boolean,
@@ -412,6 +415,15 @@ export default {
     },
   },
   methods: {
+    nodeClass(node) {
+      return {
+        'relationship-tree__node--selected': node.id === this.selectedNodeId,
+        [`relationship-tree__node--selected-${node.type}`]: node.id === this.selectedNodeId && node.type,
+        [`relationship-tree__node--${node.type}`]: node.type,
+        'relationship-tree__node--avatar': node.variant === 'avatar',
+        'relationship-tree__node--tag-group': node.isTagGroup,
+      };
+    },
     highlightSignalStyle(node) {
       const signal = node.highlightSignal;
       if (!signal) {
@@ -616,6 +628,9 @@ export default {
     },
     edgeColor(edge) {
       return edge.style && edge.style.stroke ? edge.style.stroke : '#57708f';
+    },
+    edgeStrokeWidth(edge) {
+      return edge.style && edge.style.strokeWidth ? edge.style.strokeWidth : 2;
     },
 
     edgeHasArrow(edge) {

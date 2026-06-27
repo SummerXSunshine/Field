@@ -88,7 +88,7 @@
 </template>
 
 <script>
-import RelationshipTree from './components/RelationshipTree.vue'
+import RelationshipTree from './components/RelationshipTree/RelationshipTree.vue'
 import { filterRelationshipTree } from './utils/relationFilter'
 
 export default {
