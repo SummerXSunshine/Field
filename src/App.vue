@@ -14,6 +14,20 @@
       </div>
 
       <div class="relation-filter" aria-label="关系筛选">
+        <div class="relation-filter__choices" aria-label="关系类型筛选">
+          <label
+            v-for="option in relationTypeOptions"
+            :key="option.value"
+            class="relation-filter__choice"
+            :class="{ 'relation-filter__choice--active': filters.relationTags.indexOf(option.value) >= 0 }"
+          >
+            <input v-model="filters.relationTags" type="checkbox" :value="option.value" />
+            <span class="relation-filter__choice-icon" :class="'relation-filter__choice-icon--' + option.icon" aria-hidden="true"></span>
+            <span class="relation-filter__choice-text">{{ option.label }}</span>
+            <span class="relation-filter__choice-check" aria-hidden="true">✓</span>
+          </label>
+        </div>
+
         <label class="relation-filter__field">
           <span>层级</span>
           <select v-model.number="filters.maxDepth">
@@ -59,6 +73,7 @@
         :zoom="zoom"
         :min-zoom="minZoom"
         :max-zoom="maxZoom"
+        :edge-label-background="false"
         :node-width="200"
         :node-height="41"
         :level-gap="136"
@@ -132,8 +147,15 @@ export default {
         maxDepth: 10,
         tagText: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        relationTags: []
       },
+      relationTypeOptions: [
+        { value: '亲属关系', label: '亲属关系', icon: 'family' },
+        { value: '通联关系', label: '通联关系', icon: 'contact' },
+        { value: '微信好友', label: '微信好友', icon: 'wechat' },
+        { value: '同行关系', label: '同行关系', icon: 'peer' }
+      ],
       externalChildrenMap: {
         'phone-contact-4': [
           {
@@ -512,7 +534,8 @@ export default {
         maxDepth: 10,
         tagText: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        relationTags: []
       }
     },
 
@@ -591,6 +614,160 @@ button:hover {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.relation-filter__choices {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.relation-filter__choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.relation-filter__choice:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.relation-filter__choice--active {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.relation-filter__choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.relation-filter__choice-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: currentColor;
+}
+
+.relation-filter__choice-icon::before,
+.relation-filter__choice-icon::after {
+  content: '';
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.relation-filter__choice-icon--family::before {
+  left: 2px;
+  top: 6px;
+  width: 12px;
+  height: 8px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-radius: 2px;
+}
+
+.relation-filter__choice-icon--family::after {
+  left: 3px;
+  top: 1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.relation-filter__choice-icon--contact::before {
+  left: 3px;
+  top: 2px;
+  width: 10px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  transform: rotate(-24deg);
+}
+
+.relation-filter__choice-icon--contact::after {
+  left: 7px;
+  top: 11px;
+  width: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(-24deg);
+}
+
+.relation-filter__choice-icon--wechat::before,
+.relation-filter__choice-icon--wechat::after {
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.relation-filter__choice-icon--wechat::before {
+  left: 1px;
+  top: 3px;
+  width: 10px;
+  height: 8px;
+}
+
+.relation-filter__choice-icon--wechat::after {
+  right: 1px;
+  bottom: 3px;
+  width: 8px;
+  height: 7px;
+  background: #ffffff;
+}
+
+.relation-filter__choice--active .relation-filter__choice-icon--wechat::after {
+  background: #f0fdfa;
+}
+
+.relation-filter__choice-icon--peer::before,
+.relation-filter__choice-icon--peer::after {
+  width: 7px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.relation-filter__choice-icon--peer::before {
+  left: 1px;
+  top: 2px;
+}
+
+.relation-filter__choice-icon--peer::after {
+  right: 1px;
+  bottom: 2px;
+}
+
+.relation-filter__choice-check {
+  width: 14px;
+  color: transparent;
+  font-weight: 700;
+  text-align: center;
+}
+
+.relation-filter__choice--active .relation-filter__choice-check {
+  color: currentColor;
 }
 
 .relation-filter__field {

@@ -12,32 +12,23 @@
   >
     <div class="relationship-tree__stage" :style="stageStyle">
       <svg class="relationship-tree__canvas" :viewBox="viewBox" :style="canvasStyle">
-        <defs>
-          <marker
-            id="relationship-arrow-vue2"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
-          </marker>
-        </defs>
-
         <g class="relationship-tree__edges">
           <g v-for="edge in treeLayout.edges" :key="edge.id">
             <path
               :d="edgePath(edge)"
-              :stroke="edge.style && edge.style.stroke ? edge.style.stroke : '#57708f'"
+              :stroke="edgeColor(edge)"
               :stroke-width="edge.style && edge.style.strokeWidth ? edge.style.strokeWidth : 2"
               :stroke-dasharray="edge.style && edge.style.strokeDasharray"
-              :marker-end="edge.to && edge.to.isTagGroup ? undefined : 'url(#relationship-arrow-vue2)'"
               fill="none"
+            />
+            <path
+              v-if="edgeHasArrow(edge)"
+              :d="edgeArrowPath(edge)"
+              :fill="edgeColor(edge)"
             />
             <g v-if="edge.style && edge.style.label" class="relationship-tree__edge-label">
               <rect
+                v-if="edgeLabelBackground"
                 :x="edgeLabelPoint(edge).x - 36"
                 :y="edgeLabelPoint(edge).y - 20"
                 width="72"
@@ -69,11 +60,15 @@
             class="relationship-tree__node"
             :class="{
               'relationship-tree__node--selected': node.id === selectedNodeId,
+              [`relationship-tree__node--selected-${node.type}`]: node.id === selectedNodeId && node.type,
+              [`relationship-tree__node--${node.type}`]: node.type,
               'relationship-tree__node--avatar': node.variant === 'avatar',
               'relationship-tree__node--tag-group': node.isTagGroup,
             }"
             :style="relationNodeStyle(node)"
             @click="handleNodeClick($event, node)"
+            @mouseenter="showNodePopover(node)"
+            @mouseleave="scheduleHideNodePopover"
           >
             <slot name="node" :node="node">
               <template v-if="node.variant === 'avatar'">
@@ -93,7 +88,7 @@
                 v-if="enableCollapse && node.depth > 0 && hasChildren(node)"
                 type="button"
                 class="relationship-tree__collapse"
-                :aria-label="isCollapsed(node) ? ' ' + node.name : ' ' + node.name"
+                :aria-label="(isCollapsed(node) ? '展开 ' : '收起 ') + node.name"
                 @click.stop="$emit('toggle-collapse', node)"
               >
                 {{ isCollapsed(node) ? '+' : '-' }}
@@ -102,6 +97,37 @@
           </div>
         </foreignObject>
       </svg>
+    </div>
+
+    <div
+      v-if="activePopoverNode"
+      class="relationship-tree__popover"
+      :style="nodePopoverStyle"
+      @mouseenter="clearPopoverHideTimer"
+      @mouseleave="scheduleHideNodePopover"
+    >
+      <slot name="popover" :node="activePopoverNode">
+        <strong>{{ activePopoverNode.name }}</strong>
+        <span v-if="activePopoverNode.subtitle">{{ activePopoverNode.subtitle }}</span>
+        <dl>
+          <template v-if="activePopoverNode.tag">
+            <dt>关系分类</dt>
+            <dd>{{ activePopoverNode.tag }}</dd>
+          </template>
+          <template v-if="activePopoverNode.edge && activePopoverNode.edge.label">
+            <dt>关系描述</dt>
+            <dd>{{ activePopoverNode.edge.label }}</dd>
+          </template>
+          <template v-if="activePopoverNode.eventDate">
+            <dt>时间</dt>
+            <dd>{{ activePopoverNode.eventDate }}</dd>
+          </template>
+          <template v-if="activePopoverNode.highlightSignal">
+            <dt>高亮信号</dt>
+            <dd>{{ activePopoverNode.highlightSignal }}</dd>
+          </template>
+        </dl>
+      </slot>
     </div>
   </div>
 </template>
@@ -121,6 +147,8 @@ export default {
         startPanX: 0,
         startPanY: 0,
       },
+      popoverNodeId: '',
+      popoverHideTimer: null,
     };
   },
   mounted() {
@@ -130,6 +158,7 @@ export default {
   beforeDestroy() {
     window.removeEventListener('mousemove', this.handleDragMove);
     window.removeEventListener('mouseup', this.handleDragEnd);
+    this.clearPopoverHideTimer();
   },
   props: {
     root: {
@@ -162,6 +191,10 @@ export default {
       type: Number,
       default: 2,
     },
+    edgeLabelBackground: {
+      type: Boolean,
+      default: true,
+    },
     nodeWidth: {
       type: Number,
       default: 188,
@@ -192,7 +225,7 @@ export default {
     },
     relationGroupLineHeight: {
       type: Number,
-      default: 32,
+      default: 64,
     },
     relationGroupRootGap: {
       type: Number,
@@ -357,6 +390,24 @@ export default {
         width: this.treeLayout.width + 'px',
         height: this.treeLayout.height + 'px',
         transform: 'scale(' + this.zoom + ')',
+      };
+    },
+    activePopoverNode() {
+      if (!this.popoverNodeId) {
+        return null;
+      }
+
+      return this.treeLayout.nodes.find(node => node.id === this.popoverNodeId) || null;
+    },
+    nodePopoverStyle() {
+      const node = this.activePopoverNode;
+      if (!node) {
+        return {};
+      }
+
+      return {
+        left: this.dragState.panX + (node.x + node.width + 12) * this.zoom + 'px',
+        top: this.dragState.panY + (node.y + node.height / 2) * this.zoom + 'px',
       };
     },
   },
@@ -525,6 +576,29 @@ export default {
 
       this.dragState.active = false;
     },
+    showNodePopover(node) {
+      if (!node || this.dragState.active) {
+        return;
+      }
+
+      this.clearPopoverHideTimer();
+      this.popoverNodeId = node.id;
+    },
+    scheduleHideNodePopover() {
+      this.clearPopoverHideTimer();
+      this.popoverHideTimer = window.setTimeout(() => {
+        this.popoverNodeId = '';
+        this.popoverHideTimer = null;
+      }, 120);
+    },
+    clearPopoverHideTimer() {
+      if (!this.popoverHideTimer) {
+        return;
+      }
+
+      window.clearTimeout(this.popoverHideTimer);
+      this.popoverHideTimer = null;
+    },
     handleNodeClick(event, node) {
       if (this.dragState.moved) {
         event.preventDefault();
@@ -540,6 +614,28 @@ export default {
 
       return node.y + anchorOffset + 32;
     },
+    edgeColor(edge) {
+      return edge.style && edge.style.stroke ? edge.style.stroke : '#57708f';
+    },
+
+    edgeHasArrow(edge) {
+      return !(edge.to && edge.to.isTagGroup);
+    },
+
+    edgeArrowPath(edge) {
+      const tipX = edge.to.x + 32;
+      const tipY = this.nodeAnchorY(edge.to);
+      const arrowLength = 8;
+      const arrowHalfHeight = 5;
+
+      return (
+        'M ' + tipX + ' ' + tipY +
+        ' L ' + (tipX - arrowLength) + ' ' + (tipY - arrowHalfHeight) +
+        ' L ' + (tipX - arrowLength) + ' ' + (tipY + arrowHalfHeight) +
+        ' Z'
+      );
+    },
+
     edgePath(edge) {
       const fromX = edge.from.x + edge.from.width + 32;
       const fromY = this.nodeAnchorY(edge.from);
@@ -575,6 +671,7 @@ export default {
 
 <style scoped>
 .relationship-tree {
+  position: relative;
   width: 100%;
   min-height: 480px;
   overflow: hidden;
@@ -619,6 +716,68 @@ export default {
 
 .relationship-tree__edge-label rect {
   stroke: rgba(16, 24, 40, 0.08);
+}
+
+.relationship-tree__popover {
+  position: absolute;
+  z-index: 5;
+  width: 220px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+  color: #334155;
+  cursor: default;
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: auto;
+  transform: translateY(-50%);
+}
+
+.relationship-tree__popover::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid rgba(15, 118, 110, 0.18);
+  border-bottom: 1px solid rgba(15, 118, 110, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.relationship-tree__popover strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.relationship-tree__popover span {
+  display: block;
+  margin-bottom: 8px;
+  color: #64748b;
+}
+
+.relationship-tree__popover dl {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 4px 8px;
+  margin: 0;
+}
+
+.relationship-tree__popover dt {
+  color: #64748b;
+}
+
+.relationship-tree__popover dd {
+  min-width: 0;
+  margin: 0;
+  color: #1e293b;
+  overflow-wrap: anywhere;
 }
 
 .relationship-tree__node {
@@ -698,6 +857,7 @@ export default {
   width: auto;
   max-width: 100%;
   text-align: center;
+  transform: translateY(-12px);
 }
 
 .relationship-tree__node--tag-group .relationship-tree__content strong {
@@ -705,9 +865,9 @@ export default {
   max-width: 100%;
   overflow: hidden;
   padding: 2px 10px;
-  border: 1px solid var(--relationship-group-color, #57708f);
-  border-radius: 999px;
-  background: var(--relationship-group-label-bg, #ffffff);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--relationship-group-label-color, #344054);
   font-size: 12px;
   line-height: 1.35;

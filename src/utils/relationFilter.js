@@ -61,22 +61,26 @@ export function filterRelationshipTree(root, filters = {}) {
   const keyword = String(filters.tagText || '').trim().toLowerCase()
   const startDate = filters.startDate || ''
   const endDate = filters.endDate || ''
+  const relationTags = Array.isArray(filters.relationTags) ? filters.relationTags.filter(Boolean) : []
 
   const hasKeywordFilter = Boolean(keyword)
   const hasDateFilter = Boolean(startDate || endDate)
+  const hasRelationFilter = relationTags.length > 0
 
-  const cloneMatchingNode = (node, depth, isRoot) => {
+  const cloneMatchingNode = (node, depth, isRoot, inheritedRelationMatched = false) => {
     if (!node || depth > maxDepth) {
       return null
     }
 
+    const relationMatched = inheritedRelationMatched || relationTags.indexOf(node.tag) >= 0
     const children = (node.children || [])
-      .map(child => cloneMatchingNode(child, depth + 1, false))
+      .map(child => cloneMatchingNode(child, depth + 1, false, relationMatched))
       .filter(Boolean)
 
     const matchesKeyword = !hasKeywordFilter || nodeSearchText(node).includes(keyword)
     const matchesDate = !hasDateFilter || isWithinDateRange(node, startDate, endDate)
-    const matchesSelf = matchesKeyword && matchesDate
+    const matchesRelation = !hasRelationFilter || relationMatched
+    const matchesSelf = matchesKeyword && matchesDate && matchesRelation
 
     if (!isRoot && !matchesSelf && children.length === 0) {
       return null
