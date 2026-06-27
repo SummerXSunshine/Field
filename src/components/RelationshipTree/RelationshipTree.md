@@ -53,6 +53,20 @@
 - 缩放状态：鼠标滚轮或外部按钮更新缩放比例。
 - 悬浮窗状态：鼠标 hover 节点时记录 `popoverNodeId`，并把浮窗定位到节点右侧。
 
+## 示例路由
+
+当前项目中的关系树组件示例路由为：
+
+```text
+/#/components/relationship-tree
+```
+
+组件示例页文件为：
+
+```text
+src/views/RelationshipTreeDemo.vue
+```
+
 ## 基本用法
 
 ```vue

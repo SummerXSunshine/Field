@@ -1,0 +1,30 @@
+import Vue from 'vue'
+import Router from 'vue-router'
+import ComponentHome from './views/ComponentHome.vue'
+
+Vue.use(Router)
+
+export default new Router({
+  mode: 'hash',
+  routes: [
+    {
+      path: '/',
+      name: 'component-home',
+      component: ComponentHome
+    },
+    {
+      path: '/components/relationship-tree',
+      name: 'relationship-tree-demo',
+      component: () => import('./views/RelationshipTreeDemo.vue')
+    },
+    {
+      path: '/components/antv-relationship-graph',
+      name: 'antv-relationship-graph-demo',
+      component: () => import('./AntvTestPage.vue')
+    },
+    {
+      path: '*',
+      redirect: '/'
+    }
+  ]
+})

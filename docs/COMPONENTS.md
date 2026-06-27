@@ -156,7 +156,7 @@ handleNodeClick(node) {
 }
 ```
 
-当前示例在 `src/App.vue` 中使用 `externalChildrenMap` 模拟外部数据源，并通过 `appendChildrenToNode` 合并回 `relationshipData`。
+当前示例在 `src/views/RelationshipTreeDemo.vue` 中使用 `externalChildrenMap` 模拟外部数据源，并通过 `appendChildrenToNode` 合并回 `relationshipData`。
 
 ## 外层筛选
 
@@ -173,7 +173,7 @@ handleNodeClick(node) {
 `src/components/AntvRelationshipGraph.vue` 是 AntV G6 版本的技术验证组件。测试页入口：
 
 ```text
-/?page=antv
+/#/components/antv-relationship-graph
 ```
 
 它使用 G6 自定义节点和正交折线边，尽量复刻现有组件逻辑。当前建议仍以 `RelationshipTree` 作为主实现；AntV 版本保留用于后续图谱化、大规模节点或复杂图交互验证。
