@@ -1,4 +1,4 @@
-import Vue from 'vue'
+﻿import Vue from 'vue'
 import Router from 'vue-router'
 import ComponentHome from './views/ComponentHome.vue'
 
@@ -21,6 +21,16 @@ export default new Router({
       path: '/components/antv-relationship-graph',
       name: 'antv-relationship-graph-demo',
       component: () => import('./AntvTestPage.vue')
+    },
+    {
+      path: '/components/organization-relation-graph',
+      name: 'organization-relation-graph-demo',
+      component: () => import('./views/OrganizationRelationGraph.vue')
+    },
+    {
+      path: '/components/echart-bar-demo',
+      name: 'echart-bar-demo',
+      component: () => import('./views/EChartBarDemo.vue')
     },
     {
       path: '*',

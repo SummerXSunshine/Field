@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <main class="component-home">
     <header class="component-home__header">
       <h1>组件示例</h1>
@@ -37,6 +37,18 @@ export default {
           description: '使用 AntV G6 渲染的关系图对照示例。',
           path: '/components/antv-relationship-graph',
           icon: 'graph'
+        },
+        {
+          name: 'OrganizationRelationGraph',
+          description: '使用 relation-graph 渲染机构层级树，第二层间距 400，其余层级间距 200。',
+          path: '/components/organization-relation-graph',
+          icon: 'graph'
+        },
+        {
+          name: 'EChartBarDemo',
+          description: '左侧配置、右侧实时预览的 ECharts 柱状图组件示例。',
+          path: '/components/echart-bar-demo',
+          icon: 'graph'
         }
       ]
     }
@@ -74,7 +86,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
-  max-width: 880px;
+  max-width: 960px;
 }
 
 .component-home__item {

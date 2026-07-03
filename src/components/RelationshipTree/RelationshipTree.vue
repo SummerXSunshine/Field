@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div
     ref="viewport"
     class="relationship-tree"
@@ -96,9 +96,12 @@
     <div
       v-if="activePopoverNode"
       class="relationship-tree__popover"
+      :class="'relationship-tree__popover--' + nodePopoverSide"
       :style="nodePopoverStyle"
+      @mousedown.stop
       @mouseenter="clearPopoverHideTimer"
       @mouseleave="scheduleHideNodePopover"
+      @wheel.stop
     >
       <slot name="popover" :node="activePopoverNode">
         <strong>{{ activePopoverNode.name }}</strong>
@@ -402,14 +405,33 @@ export default {
 
       return this.treeLayout.nodes.find(node => node.id === this.popoverNodeId) || null;
     },
+    nodePopoverSide() {
+      const node = this.activePopoverNode;
+      const viewport = this.$refs.viewport;
+      if (!node || !viewport) {
+        return 'right';
+      }
+
+      const popoverWidth = 743;
+      const gap = 12;
+      const rightLeft = this.dragState.panX + (node.x + node.width) * this.zoom + gap;
+
+      return rightLeft + popoverWidth <= viewport.clientWidth ? 'right' : 'left';
+    },
     nodePopoverStyle() {
       const node = this.activePopoverNode;
       if (!node) {
         return {};
       }
 
+      const popoverWidth = 743;
+      const gap = 12;
+      const rightLeft = this.dragState.panX + (node.x + node.width) * this.zoom + gap;
+      const leftLeft = this.dragState.panX + node.x * this.zoom - popoverWidth - gap;
+      const left = this.nodePopoverSide === 'right' ? rightLeft : leftLeft;
+
       return {
-        left: this.dragState.panX + (node.x + node.width + 12) * this.zoom + 'px',
+        left: Math.max(8, left) + 'px',
         top: this.dragState.panY + (node.y + node.height / 2) * this.zoom + 'px',
       };
     },
@@ -548,7 +570,7 @@ export default {
       }
 
       const interactiveTarget = event.target.closest(
-        '.relationship-tree__collapse, button, a, input, textarea, select',
+        '.relationship-tree__popover, .relationship-tree__collapse, button, a, input, textarea, select',
       );
 
       if (interactiveTarget) {
@@ -736,8 +758,10 @@ export default {
 .relationship-tree__popover {
   position: absolute;
   z-index: 5;
-  width: 220px;
+  width: 743px;
+  height: 293px;
   box-sizing: border-box;
+  overflow: auto;
   padding: 10px 12px;
   border: 1px solid rgba(15, 118, 110, 0.18);
   border-radius: 8px;
@@ -749,19 +773,33 @@ export default {
   line-height: 1.45;
   pointer-events: auto;
   transform: translateY(-50%);
+  user-select: text;
+}
+
+.relationship-tree__popover * {
+  user-select: text;
 }
 
 .relationship-tree__popover::before {
   content: '';
   position: absolute;
-  left: -6px;
   top: 50%;
   width: 10px;
   height: 10px;
-  border-left: 1px solid rgba(15, 118, 110, 0.18);
-  border-bottom: 1px solid rgba(15, 118, 110, 0.18);
   background: rgba(255, 255, 255, 0.96);
   transform: translateY(-50%) rotate(45deg);
+}
+
+.relationship-tree__popover--right::before {
+  left: -6px;
+  border-left: 1px solid rgba(15, 118, 110, 0.18);
+  border-bottom: 1px solid rgba(15, 118, 110, 0.18);
+}
+
+.relationship-tree__popover--left::before {
+  right: -6px;
+  border-top: 1px solid rgba(15, 118, 110, 0.18);
+  border-right: 1px solid rgba(15, 118, 110, 0.18);
 }
 
 .relationship-tree__popover strong {

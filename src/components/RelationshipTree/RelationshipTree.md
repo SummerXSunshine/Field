@@ -51,7 +51,7 @@
 - 折叠状态：通过 `collapsedNodeIds` 在布局测量阶段隐藏子节点。
 - 拖拽状态：鼠标移动时更新平移坐标。
 - 缩放状态：鼠标滚轮或外部按钮更新缩放比例。
-- 悬浮窗状态：鼠标 hover 节点时记录 `popoverNodeId`，并把浮窗定位到节点右侧。
+- 悬浮窗状态：鼠标 hover 节点时记录 `popoverNodeId`，并优先把浮窗定位到节点右侧；右侧空间不足时自动切换到左侧。
 
 ## 示例路由
 
@@ -170,9 +170,24 @@ edgeArrowPath(edge) { ... }
 ### 节点悬浮窗定位
 
 ```js
-left: this.dragState.panX + (node.x + node.width + 12) * this.zoom + 'px'
+const popoverWidth = 743;
 ```
-把浮窗放到节点右侧，并同时考虑当前拖拽平移和缩放比例。
+浮窗宽度固定为 743px，位置判断也使用同一个宽度，避免视觉尺寸和计算尺寸不一致。
+
+```js
+const rightLeft = this.dragState.panX + (node.x + node.width) * this.zoom + gap;
+```
+先计算浮窗放在节点右侧时的左边界，同时考虑当前拖拽平移、缩放比例和节点宽度。
+
+```js
+return rightLeft + popoverWidth <= viewport.clientWidth ? 'right' : 'left';
+```
+如果右侧剩余空间能容纳完整浮窗，就放右侧；否则切换到左侧。
+
+```js
+const leftLeft = this.dragState.panX + node.x * this.zoom - popoverWidth - gap;
+```
+当切换到左侧时，使用节点左边界减去浮窗宽度和间距，得到浮窗左侧位置。
 
 ```js
 top: this.dragState.panY + (node.y + node.height / 2) * this.zoom + 'px'
