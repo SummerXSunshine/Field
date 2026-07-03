@@ -24,6 +24,16 @@
           <input v-model.trim="chartConfig.seriesName" type="text" />
         </label>
 
+        <label class="field field--inline">
+          <input v-model="chartConfig.enableSecondSeries" type="checkbox" />
+          <span>启用双柱图</span>
+        </label>
+
+        <label v-if="chartConfig.enableSecondSeries" class="field">
+          <span>第二系列名称</span>
+          <input v-model.trim="chartConfig.secondSeriesName" type="text" />
+        </label>
+
         <label class="field">
           <span>柱图布局</span>
           <select v-model="chartConfig.orientation">
@@ -88,6 +98,11 @@
           <label class="field field--color-inline">
             <span>柱体颜色</span>
             <input v-model="chartConfig.barColor" type="color" />
+          </label>
+
+          <label class="field field--color-inline">
+            <span>第二柱颜色</span>
+            <input v-model="chartConfig.secondBarColor" type="color" :disabled="!chartConfig.enableSecondSeries" />
           </label>
 
           <label class="field field--color-inline">
@@ -162,15 +177,23 @@
       </section>
 
       <section class="config-panel__section">
-        <h2>数据配置</h2>
+        <h2>{{ chartConfig.enableSecondSeries ? '双柱数据配置' : '数据配置' }}</h2>
 
         <div
           v-for="(item, index) in chartConfig.items"
           :key="item.id"
           class="data-row"
+          :class="{ 'data-row--double': chartConfig.enableSecondSeries }"
         >
           <input v-model.trim="item.name" type="text" :aria-label="'分类 ' + (index + 1)" />
-          <input v-model.number="item.value" type="number" min="0" :aria-label="'数值 ' + (index + 1)" />
+          <input v-model.number="item.value" type="number" min="0" :aria-label="chartConfig.seriesName + ' 数值 ' + (index + 1)" />
+          <input
+            v-if="chartConfig.enableSecondSeries"
+            v-model.number="item.compareValue"
+            type="number"
+            min="0"
+            :aria-label="chartConfig.secondSeriesName + ' 数值 ' + (index + 1)"
+          />
         </div>
 
         <div class="config-actions">
@@ -191,16 +214,18 @@
 import * as echarts from 'echarts'
 
 const defaultItems = () => [
-  { id: 'q1', name: '一季度', value: 128 },
-  { id: 'q2', name: '二季度', value: 186 },
-  { id: 'q3', name: '三季度', value: 156 },
-  { id: 'q4', name: '四季度', value: 218 }
+  { id: 'q1', name: '一季度', value: 128, compareValue: 96 },
+  { id: 'q2', name: '二季度', value: 186, compareValue: 142 },
+  { id: 'q3', name: '三季度', value: 156, compareValue: 168 },
+  { id: 'q4', name: '四季度', value: 218, compareValue: 176 }
 ]
 
 const defaultConfig = () => ({
   title: '机构业务量统计',
   subtitle: '实时配置预览',
   seriesName: '业务量',
+  enableSecondSeries: false,
+  secondSeriesName: '对比业务量',
   orientation: 'vertical',
   categoryAxisName: '季度',
   valueAxisName: '业务量',
@@ -210,6 +235,7 @@ const defaultConfig = () => ({
   categoryLabelOffsetY: 0,
   showAllCategoryLabels: false,
   barColor: '#2563eb',
+  secondBarColor: '#f97316',
   backgroundColor: '#ffffff',
   barWidth: 32,
   barRadius: 6,
@@ -237,6 +263,7 @@ export default {
     chartOption() {
       const names = this.chartConfig.items.map(item => item.name || '未命名')
       const values = this.chartConfig.items.map(item => Number(item.value) || 0)
+      const compareValues = this.chartConfig.items.map(item => Number(item.compareValue) || 0)
       const isHorizontal = this.chartConfig.orientation === 'horizontal'
       const categoryAxis = {
         type: 'category',
@@ -274,6 +301,30 @@ export default {
           }
         }
       }
+      const createBarSeries = (name, data, color) => ({
+        name,
+        type: 'bar',
+        data,
+        barWidth: this.chartConfig.barWidth,
+        itemStyle: {
+          color,
+          borderRadius: isHorizontal
+            ? [0, this.chartConfig.barRadius, this.chartConfig.barRadius, 0]
+            : [this.chartConfig.barRadius, this.chartConfig.barRadius, 0, 0]
+        },
+        label: {
+          show: this.chartConfig.showLabel,
+          position: isHorizontal && this.chartConfig.labelPosition === 'top' ? 'right' : this.chartConfig.labelPosition,
+          color: '#334155',
+          fontWeight: 600
+        }
+      })
+      const series = [createBarSeries(this.chartConfig.seriesName, values, this.chartConfig.barColor)]
+
+      if (this.chartConfig.enableSecondSeries) {
+        series.push(createBarSeries(this.chartConfig.secondSeriesName, compareValues, this.chartConfig.secondBarColor))
+      }
+
       const option = {
         backgroundColor: this.chartConfig.backgroundColor,
         title: {
@@ -311,26 +362,7 @@ export default {
         },
         xAxis: isHorizontal ? valueAxis : categoryAxis,
         yAxis: isHorizontal ? categoryAxis : valueAxis,
-        series: [
-          {
-            name: this.chartConfig.seriesName,
-            type: 'bar',
-            data: values,
-            barWidth: this.chartConfig.barWidth,
-            itemStyle: {
-              color: this.chartConfig.barColor,
-              borderRadius: isHorizontal
-                ? [0, this.chartConfig.barRadius, this.chartConfig.barRadius, 0]
-                : [this.chartConfig.barRadius, this.chartConfig.barRadius, 0, 0]
-            },
-            label: {
-              show: this.chartConfig.showLabel,
-              position: isHorizontal && this.chartConfig.labelPosition === 'top' ? 'right' : this.chartConfig.labelPosition,
-              color: '#334155',
-              fontWeight: 600
-            }
-          }
-        ]
+        series
       }
 
       if (!isHorizontal) {
@@ -450,7 +482,8 @@ export default {
       this.chartConfig.items.push({
         id: 'custom-' + Date.now(),
         name: '分类' + nextIndex,
-        value: 100
+        value: 100,
+        compareValue: 80
       })
     },
     removeItem() {
@@ -614,6 +647,10 @@ export default {
   display: grid;
   grid-template-columns: 1fr 92px;
   gap: 8px;
+}
+
+.data-row--double {
+  grid-template-columns: 1fr 82px 82px;
 }
 
 .config-actions {
