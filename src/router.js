@@ -38,6 +38,11 @@ export default new Router({
       component: () => import('./views/ElementFormDemo.vue')
     },
     {
+      path: '/components/hover-popover-demo',
+      name: 'hover-popover-demo',
+      component: () => import('./views/HoverPopoverDemo.vue')
+    },
+    {
       path: '*',
       redirect: '/'
     }

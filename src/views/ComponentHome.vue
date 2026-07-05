@@ -55,6 +55,12 @@ export default {
           description: '基于 Element UI 的可配置基础表单，支持字段和数据实时修改。',
           path: '/components/element-form-demo',
           icon: 'form'
+        },
+        {
+          name: 'HoverPopoverDirective',
+          description: 'Vue2 指令形式的节点悬浮窗，内容可选中复制。',
+          path: '/components/hover-popover-demo',
+          icon: 'popover'
         }
       ]
     }
@@ -198,5 +204,25 @@ export default {
   height: 2px;
   background: currentColor;
   box-shadow: 0 6px 0 currentColor, 0 12px 0 currentColor;
+}
+
+.component-home__icon--popover::before {
+  left: 8px;
+  top: 10px;
+  width: 26px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+}
+
+.component-home__icon--popover::after {
+  left: 18px;
+  top: 27px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  background: #ecfdf5;
+  transform: rotate(45deg);
 }
 </style>
