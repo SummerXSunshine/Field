@@ -46,9 +46,15 @@ export default {
         },
         {
           name: 'EChartBarDemo',
-          description: '左侧配置、右侧实时预览的 ECharts 柱状图组件示例。',
+          description: '左侧配置、右侧实时预览的 ECharts 柱状图和折线图组件示例。',
           path: '/components/echart-bar-demo',
           icon: 'graph'
+        },
+        {
+          name: 'ElementFormDemo',
+          description: '基于 Element UI 的可配置基础表单，支持字段和数据实时修改。',
+          path: '/components/element-form-demo',
+          icon: 'form'
         }
       ]
     }
@@ -174,5 +180,23 @@ export default {
   border: 2px solid currentColor;
   border-radius: 50%;
   box-shadow: 17px 16px 0 -2px #ecfdf5, 17px 16px 0 0 currentColor;
+}
+
+.component-home__icon--form::before {
+  left: 10px;
+  top: 9px;
+  width: 22px;
+  height: 24px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+
+.component-home__icon--form::after {
+  left: 15px;
+  top: 15px;
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 6px 0 currentColor, 0 12px 0 currentColor;
 }
 </style>

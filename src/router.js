@@ -33,6 +33,11 @@ export default new Router({
       component: () => import('./views/EChartBarDemo.vue')
     },
     {
+      path: '/components/element-form-demo',
+      name: 'element-form-demo',
+      component: () => import('./views/ElementFormDemo.vue')
+    },
+    {
       path: '*',
       redirect: '/'
     }

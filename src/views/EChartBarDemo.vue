@@ -1,8 +1,8 @@
 ﻿<template>
   <main class="echart-page">
-    <aside class="config-panel" aria-label="柱状图配置">
+    <aside class="config-panel" aria-label="ECharts 图表配置">
       <header class="config-panel__header">
-        <h1>ECharts 柱状图</h1>
+        <h1>ECharts 图表</h1>
         <p>修改左侧配置，右侧图表实时更新。</p>
       </header>
 
@@ -20,13 +20,21 @@
         </label>
 
         <label class="field">
+          <span>图表类型</span>
+          <select v-model="chartConfig.chartType">
+            <option value="bar">柱状图</option>
+            <option value="line">折线图</option>
+          </select>
+        </label>
+
+        <label class="field">
           <span>系列名称</span>
           <input v-model.trim="chartConfig.seriesName" type="text" />
         </label>
 
         <label class="field field--inline">
           <input v-model="chartConfig.enableSecondSeries" type="checkbox" />
-          <span>启用双柱图</span>
+          <span>启用双系列</span>
         </label>
 
         <label v-if="chartConfig.enableSecondSeries" class="field">
@@ -34,8 +42,8 @@
           <input v-model.trim="chartConfig.secondSeriesName" type="text" />
         </label>
 
-        <label class="field">
-          <span>柱图布局</span>
+        <label v-if="!isLineChart" class="field">
+          <span>图表布局</span>
           <select v-model="chartConfig.orientation">
             <option value="vertical">纵向柱状图</option>
             <option value="horizontal">横向柱状图</option>
@@ -96,12 +104,12 @@
 
         <div class="style-color-row">
           <label class="field field--color-inline">
-            <span>柱体颜色</span>
+            <span>{{ isLineChart ? '折线颜色' : '柱体颜色' }}</span>
             <input v-model="chartConfig.barColor" type="color" />
           </label>
 
           <label class="field field--color-inline">
-            <span>第二柱颜色</span>
+            <span>{{ isLineChart ? '第二折线颜色' : '第二柱颜色' }}</span>
             <input v-model="chartConfig.secondBarColor" type="color" :disabled="!chartConfig.enableSecondSeries" />
           </label>
 
@@ -111,16 +119,28 @@
           </label>
         </div>
 
-        <label class="field">
+        <label v-if="!isLineChart" class="field">
           <span>柱宽</span>
           <input v-model.number="chartConfig.barWidth" type="range" min="12" max="56" />
           <em>{{ chartConfig.barWidth }}px</em>
         </label>
 
-        <label class="field">
+        <label v-if="!isLineChart" class="field">
           <span>圆角</span>
           <input v-model.number="chartConfig.barRadius" type="range" min="0" max="18" />
           <em>{{ chartConfig.barRadius }}px</em>
+        </label>
+
+        <label v-if="isLineChart" class="field">
+          <span>线宽</span>
+          <input v-model.number="chartConfig.lineWidth" type="range" min="1" max="8" />
+          <em>{{ chartConfig.lineWidth }}px</em>
+        </label>
+
+        <label v-if="isLineChart" class="field">
+          <span>节点大小</span>
+          <input v-model.number="chartConfig.symbolSize" type="range" min="4" max="18" />
+          <em>{{ chartConfig.symbolSize }}px</em>
         </label>
 
         <label class="field">
@@ -135,6 +155,16 @@
         <label class="field field--inline">
           <input v-model="chartConfig.showLabel" type="checkbox" />
           <span>显示数值标签</span>
+        </label>
+
+        <label v-if="isLineChart" class="field field--inline">
+          <input v-model="chartConfig.smoothLine" type="checkbox" />
+          <span>平滑折线</span>
+        </label>
+
+        <label v-if="isLineChart" class="field field--inline">
+          <input v-model="chartConfig.showArea" type="checkbox" />
+          <span>显示面积填充</span>
         </label>
 
         <label class="field field--inline">
@@ -159,6 +189,14 @@
       </section>
 
       <section class="config-panel__section">
+        <h2>图表 Data</h2>
+        <textarea class="options-editor options-editor--readonly options-editor--data" :value="generatedDataText" readonly spellcheck="false"></textarea>
+        <div class="config-actions">
+          <button type="button" @click="copyGeneratedData">复制 Data</button>
+        </div>
+      </section>
+
+      <section class="config-panel__section">
         <h2>Options JSON</h2>
         <label class="field">
           <span>直接粘贴 ECharts option</span>
@@ -177,7 +215,7 @@
       </section>
 
       <section class="config-panel__section">
-        <h2>{{ chartConfig.enableSecondSeries ? '双柱数据配置' : '数据配置' }}</h2>
+        <h2>{{ dataConfigTitle }}</h2>
 
         <div
           v-for="(item, index) in chartConfig.items"
@@ -205,7 +243,7 @@
     </aside>
 
     <section class="chart-panel">
-      <div ref="chart" class="chart-panel__canvas" role="img" aria-label="柱状图预览"></div>
+      <div ref="chart" class="chart-panel__canvas" role="img" :aria-label="chartPreviewLabel"></div>
     </section>
   </main>
 </template>
@@ -223,6 +261,7 @@ const defaultItems = () => [
 const defaultConfig = () => ({
   title: '机构业务量统计',
   subtitle: '实时配置预览',
+  chartType: 'bar',
   seriesName: '业务量',
   enableSecondSeries: false,
   secondSeriesName: '对比业务量',
@@ -239,6 +278,10 @@ const defaultConfig = () => ({
   backgroundColor: '#ffffff',
   barWidth: 32,
   barRadius: 6,
+  lineWidth: 3,
+  symbolSize: 8,
+  smoothLine: true,
+  showArea: false,
   labelPosition: 'top',
   showLabel: true,
   showLegend: true,
@@ -246,6 +289,8 @@ const defaultConfig = () => ({
   showGridLine: true,
   items: defaultItems()
 })
+
+const cloneOption = option => JSON.parse(JSON.stringify(option))
 
 export default {
   name: 'EChartBarDemo',
@@ -260,11 +305,24 @@ export default {
     }
   },
   computed: {
+    isLineChart() {
+      return this.chartConfig.chartType === 'line'
+    },
+    dataConfigTitle() {
+      if (!this.chartConfig.enableSecondSeries) {
+        return '数据配置'
+      }
+
+      return this.isLineChart ? '双折线数据配置' : '双柱数据配置'
+    },
+    chartPreviewLabel() {
+      return this.isLineChart ? '折线图预览' : '柱状图预览'
+    },
     chartOption() {
       const names = this.chartConfig.items.map(item => item.name || '未命名')
       const values = this.chartConfig.items.map(item => Number(item.value) || 0)
       const compareValues = this.chartConfig.items.map(item => Number(item.compareValue) || 0)
-      const isHorizontal = this.chartConfig.orientation === 'horizontal'
+      const isHorizontal = !this.isLineChart && this.chartConfig.orientation === 'horizontal'
       const categoryAxis = {
         type: 'category',
         name: this.chartConfig.categoryAxisName,
@@ -319,10 +377,48 @@ export default {
           fontWeight: 600
         }
       })
-      const series = [createBarSeries(this.chartConfig.seriesName, values, this.chartConfig.barColor)]
+      const createLineSeries = (name, data, color) => ({
+        name,
+        type: 'line',
+        data,
+        smooth: this.chartConfig.smoothLine,
+        symbol: 'circle',
+        symbolSize: this.chartConfig.symbolSize,
+        lineStyle: {
+          width: this.chartConfig.lineWidth,
+          color
+        },
+        itemStyle: {
+          color
+        },
+        areaStyle: this.chartConfig.showArea
+          ? {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color },
+                  { offset: 1, color: 'rgba(255, 255, 255, 0)' }
+                ]
+              },
+              opacity: 0.16
+            }
+          : undefined,
+        label: {
+          show: this.chartConfig.showLabel,
+          position: this.chartConfig.labelPosition === 'inside' ? 'top' : this.chartConfig.labelPosition,
+          color: '#334155',
+          fontWeight: 600
+        }
+      })
+      const createSeries = this.isLineChart ? createLineSeries : createBarSeries
+      const series = [createSeries(this.chartConfig.seriesName, values, this.chartConfig.barColor)]
 
       if (this.chartConfig.enableSecondSeries) {
-        series.push(createBarSeries(this.chartConfig.secondSeriesName, compareValues, this.chartConfig.secondBarColor))
+        series.push(createSeries(this.chartConfig.secondSeriesName, compareValues, this.chartConfig.secondBarColor))
       }
 
       const option = {
@@ -350,7 +446,7 @@ export default {
           show: this.chartConfig.showTooltip,
           trigger: 'axis',
           axisPointer: {
-            type: 'shadow'
+            type: this.isLineChart ? 'line' : 'shadow'
           }
         },
         grid: {
@@ -376,8 +472,58 @@ export default {
 
       return option
     },
+    chartOptionWithoutData() {
+      const option = cloneOption(this.chartOption)
+      const xAxes = Array.isArray(option.xAxis) ? option.xAxis : [option.xAxis]
+      const yAxes = Array.isArray(option.yAxis) ? option.yAxis : [option.yAxis]
+
+      xAxes.forEach(axis => {
+        if (axis && Object.prototype.hasOwnProperty.call(axis, 'data')) {
+          axis.data = []
+        }
+      })
+
+      yAxes.forEach(axis => {
+        if (axis && Object.prototype.hasOwnProperty.call(axis, 'data')) {
+          axis.data = []
+        }
+      })
+
+      if (Array.isArray(option.series)) {
+        option.series = option.series.map(seriesItem => ({
+          ...seriesItem,
+          data: []
+        }))
+      }
+
+      return option
+    },
+    chartData() {
+      const names = this.chartConfig.items.map(item => item.name || '未命名')
+      const series = [
+        {
+          name: this.chartConfig.seriesName,
+          data: this.chartConfig.items.map(item => Number(item.value) || 0)
+        }
+      ]
+
+      if (this.chartConfig.enableSecondSeries) {
+        series.push({
+          name: this.chartConfig.secondSeriesName,
+          data: this.chartConfig.items.map(item => Number(item.compareValue) || 0)
+        })
+      }
+
+      return {
+        categories: names,
+        series
+      }
+    },
     generatedOptionText() {
-      return JSON.stringify(this.chartOption, null, 2)
+      return JSON.stringify(this.chartOptionWithoutData, null, 2)
+    },
+    generatedDataText() {
+      return JSON.stringify(this.chartData, null, 2)
     }
   },
   watch: {
@@ -436,7 +582,7 @@ export default {
       }
     },
     loadCurrentOptionText() {
-      this.rawOptionsText = JSON.stringify(this.customChartOption || this.chartOption, null, 2)
+      this.rawOptionsText = JSON.stringify(this.customChartOption || this.chartOptionWithoutData, null, 2)
       this.rawOptionsError = ''
     },
     clearRawOptions() {
@@ -446,21 +592,24 @@ export default {
       this.renderChart()
     },
     copyGeneratedOption() {
-      this.copyText(this.generatedOptionText)
+      this.copyText(this.generatedOptionText, '已复制 option')
     },
-    copyText(text) {
+    copyGeneratedData() {
+      this.copyText(this.generatedDataText, '已复制 data')
+    },
+    copyText(text, successMessage) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
-          this.copyStatus = '已复制 option'
+          this.copyStatus = successMessage
         }).catch(() => {
-          this.copyTextFallback(text)
+          this.copyTextFallback(text, successMessage)
         })
         return
       }
 
-      this.copyTextFallback(text)
+      this.copyTextFallback(text, successMessage)
     },
-    copyTextFallback(text) {
+    copyTextFallback(text, successMessage) {
       const textarea = document.createElement('textarea')
       textarea.value = text
       textarea.setAttribute('readonly', 'readonly')
@@ -470,7 +619,7 @@ export default {
       textarea.select()
       document.execCommand('copy')
       document.body.removeChild(textarea)
-      this.copyStatus = '已复制 option'
+      this.copyStatus = successMessage
     },
     resizeChart() {
       if (this.chart) {
@@ -504,7 +653,9 @@ export default {
 
 <style scoped>
 .echart-page {
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  height: auto;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 380px 1fr;
@@ -516,7 +667,7 @@ export default {
 
 .config-panel {
   min-width: 0;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 24px;
@@ -615,6 +766,10 @@ export default {
   background: #f8fafc;
 }
 
+.options-editor--data {
+  min-height: 132px;
+}
+
 .options-error {
   margin: 0;
   color: #dc2626;
@@ -677,7 +832,7 @@ export default {
 .chart-panel {
   min-width: 0;
   min-height: 0;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   padding: 24px;
   box-sizing: border-box;
