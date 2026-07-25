@@ -126,6 +126,52 @@
         </dl>
       </slot>
     </div>
+
+    <div
+      ref="minimap"
+      class="relationship-tree__minimap"
+      aria-label="关系图缩略图导航"
+      @mousedown.stop="handleMinimapDragStart"
+      @wheel.stop.prevent
+    >
+      <svg
+        class="relationship-tree__minimap-canvas"
+        :width="minimapWidth"
+        :height="minimapHeight"
+        :viewBox="'0 0 ' + minimapWidth + ' ' + minimapHeight"
+        preserveAspectRatio="none"
+      >
+        <g :transform="minimapContentTransform">
+          <path
+            v-for="edge in treeLayout.edges"
+            :key="'minimap-edge-' + edge.id"
+            :d="edgePath(edge)"
+            class="relationship-tree__minimap-edge"
+          />
+          <rect
+            v-for="node in treeLayout.nodes"
+            :key="'minimap-node-' + node.id"
+            :x="node.x"
+            :y="node.y"
+            :width="node.width"
+            :height="node.height"
+            :class="{
+              'relationship-tree__minimap-node': true,
+              'relationship-tree__minimap-node--selected': node.id === selectedNodeId
+            }"
+            rx="8"
+          />
+        </g>
+        <rect
+          class="relationship-tree__minimap-viewport"
+          :x="minimapViewportRect.x"
+          :y="minimapViewportRect.y"
+          :width="minimapViewportRect.width"
+          :height="minimapViewportRect.height"
+          rx="2"
+        />
+      </svg>
+    </div>
   </div>
 </template>
 
@@ -143,18 +189,30 @@ export default {
         startY: 0,
         startPanX: 0,
         startPanY: 0,
+        scale: 1,
       },
       popoverNodeId: '',
       popoverHideTimer: null,
+      viewportSize: { width: 0, height: 0 },
+      minimapDragState: {
+        active: false,
+        startX: 0,
+        startY: 0,
+        startPanX: 0,
+        startPanY: 0,
+      },
     };
   },
   mounted() {
     window.addEventListener('mousemove', this.handleDragMove);
     window.addEventListener('mouseup', this.handleDragEnd);
+    window.addEventListener('resize', this.updateViewportSize);
+    this.$nextTick(this.updateViewportSize);
   },
   beforeDestroy() {
     window.removeEventListener('mousemove', this.handleDragMove);
     window.removeEventListener('mouseup', this.handleDragEnd);
+    window.removeEventListener('resize', this.updateViewportSize);
     this.clearPopoverHideTimer();
   },
   props: {
@@ -336,6 +394,11 @@ export default {
             : nextLeafY.value;
         if (laidOutChildren.length === 0) {
           nextLeafY.value += height + this.siblingGap;
+        } else {
+          nextLeafY.value = Math.max(
+            nextLeafY.value,
+            y + height + this.siblingGap,
+          );
         }
         const positioned = Object.assign({}, node, {
           depth,
@@ -398,6 +461,63 @@ export default {
         transform: 'scale(' + this.zoom + ')',
       };
     },
+    minimapWidth() {
+      return 190;
+    },
+    minimapHeight() {
+      return 128;
+    },
+    minimapPadding() {
+      return 8;
+    },
+    minimapVisibleBounds() {
+      const zoom = this.clampZoom(this.zoom);
+      const viewportLeft = -this.dragState.panX / zoom;
+      const viewportTop = -this.dragState.panY / zoom;
+      const viewportRight = viewportLeft + this.viewportSize.width / zoom;
+      const viewportBottom = viewportTop + this.viewportSize.height / zoom;
+      const minX = Math.min(0, viewportLeft);
+      const minY = Math.min(0, viewportTop);
+      const maxX = Math.max(this.treeLayout.width, viewportRight);
+      const maxY = Math.max(this.treeLayout.height, viewportBottom);
+
+      return {
+        minX,
+        minY,
+        width: Math.max(1, maxX - minX),
+        height: Math.max(1, maxY - minY),
+        viewportLeft,
+        viewportTop,
+      };
+    },
+    minimapScale() {
+      return Math.min(
+        (this.minimapWidth - this.minimapPadding * 2) / this.minimapVisibleBounds.width,
+        (this.minimapHeight - this.minimapPadding * 2) / this.minimapVisibleBounds.height,
+      );
+    },
+    minimapOffset() {
+      const bounds = this.minimapVisibleBounds;
+
+      return {
+        x: (this.minimapWidth - bounds.width * this.minimapScale) / 2 - bounds.minX * this.minimapScale,
+        y: (this.minimapHeight - bounds.height * this.minimapScale) / 2 - bounds.minY * this.minimapScale,
+      };
+    },
+    minimapContentTransform() {
+      return 'translate(' + this.minimapOffset.x + ' ' + this.minimapOffset.y + ') scale(' + this.minimapScale + ')';
+    },
+    minimapViewportRect() {
+      const bounds = this.minimapVisibleBounds;
+      const zoom = this.clampZoom(this.zoom);
+
+      return {
+        x: this.minimapOffset.x + bounds.viewportLeft * this.minimapScale,
+        y: this.minimapOffset.y + bounds.viewportTop * this.minimapScale,
+        width: Math.max(4, this.viewportSize.width / zoom * this.minimapScale),
+        height: Math.max(4, this.viewportSize.height / zoom * this.minimapScale),
+      };
+    },
     activePopoverNode() {
       if (!this.popoverNodeId) {
         return null;
@@ -437,6 +557,32 @@ export default {
     },
   },
   methods: {
+    updateViewportSize() {
+      const viewport = this.$refs.viewport;
+      if (!viewport) return;
+      this.viewportSize = { width: viewport.clientWidth, height: viewport.clientHeight };
+    },
+    handleMinimapDragStart(event) {
+      if (event.button !== 0 || !this.minimapScale) return;
+      const minimap = this.$refs.minimap;
+      if (!minimap) return;
+
+      if (!event.target.classList.contains('relationship-tree__minimap-viewport')) {
+        const rect = minimap.getBoundingClientRect();
+        const contentX = (event.clientX - rect.left - this.minimapOffset.x) / this.minimapScale;
+        const contentY = (event.clientY - rect.top - this.minimapOffset.y) / this.minimapScale;
+        this.dragState.panX = this.viewportSize.width / 2 - contentX * this.zoom;
+        this.dragState.panY = this.viewportSize.height / 2 - contentY * this.zoom;
+      }
+
+      this.minimapDragState.active = true;
+      this.minimapDragState.startX = event.clientX;
+      this.minimapDragState.startY = event.clientY;
+      this.minimapDragState.startPanX = this.dragState.panX;
+      this.minimapDragState.startPanY = this.dragState.panY;
+      this.minimapDragState.scale = this.minimapScale;
+      event.preventDefault();
+    },
     nodeClass(node) {
       return {
         'relationship-tree__node--selected': node.id === this.selectedNodeId,
@@ -587,6 +733,15 @@ export default {
       event.preventDefault();
     },
     handleDragMove(event) {
+      if (this.minimapDragState.active) {
+        const deltaX = event.clientX - this.minimapDragState.startX;
+        const deltaY = event.clientY - this.minimapDragState.startY;
+        this.dragState.panX = this.minimapDragState.startPanX - deltaX / this.minimapDragState.scale * this.zoom;
+        this.dragState.panY = this.minimapDragState.startPanY - deltaY / this.minimapDragState.scale * this.zoom;
+        event.preventDefault();
+        return;
+      }
+
       if (!this.dragState.active) {
         return;
       }
@@ -604,10 +759,7 @@ export default {
       event.preventDefault();
     },
     handleDragEnd() {
-      if (!this.dragState.active) {
-        return;
-      }
-
+      this.minimapDragState.active = false;
       this.dragState.active = false;
     },
     showNodePopover(node) {
@@ -739,6 +891,62 @@ export default {
   min-height: 100%;
   transform-origin: top left;
   will-change: transform;
+}
+
+.relationship-tree__minimap {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 4;
+  width: 190px;
+  height: 128px;
+  min-width: 190px;
+  max-width: 190px;
+  min-height: 128px;
+  max-height: 128px;
+  flex: 0 0 190px;
+  overflow: hidden;
+  border: 1px solid rgba(87, 112, 143, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.14);
+  cursor: crosshair;
+}
+
+.relationship-tree__minimap-canvas {
+  display: block;
+  width: 190px;
+  height: 128px;
+  min-width: 190px;
+  max-width: 190px;
+  min-height: 128px;
+  max-height: 128px;
+}
+
+.relationship-tree__minimap-edge {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.relationship-tree__minimap-node {
+  fill: #dbe4ef;
+  stroke: #64748b;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.relationship-tree__minimap-node--selected {
+  fill: #99f6e4;
+  stroke: #0f766e;
+}
+
+.relationship-tree__minimap-viewport {
+  fill: rgba(15, 118, 110, 0.12);
+  stroke: #0f766e;
+  stroke-width: 2px;
+  cursor: move;
 }
 
 .relationship-tree__edges path {

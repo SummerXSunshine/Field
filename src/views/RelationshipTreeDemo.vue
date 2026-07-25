@@ -229,6 +229,100 @@ export default {
 
         children: [
           {
+            id: 'mixed-node-test-text-parent',
+            eventDate: '2026-07-24',
+            name: '测试：文本父节点',
+            subtitle: '包含一个头像子节点和一个文本子节点',
+            tag: '混合节点测试',
+            height: 41,
+            edge: createEdge('peer', '混合节点测试', {
+              stroke: '#7c3aed',
+              labelColor: '#6d28d9',
+              labelBackground: '#f5f3ff'
+            }),
+            children: [
+              {
+                id: 'mixed-node-test-avatar-child',
+                eventDate: '2026-07-24',
+                name: '测试：头像子节点',
+                subtitle: '该头像节点下还有文本节点',
+                variant: 'avatar',
+                height: 84,
+                edge: createEdge('peer', '头像分支', {
+                  stroke: '#7c3aed'
+                }),
+                children: [
+                  {
+                    id: 'mixed-node-test-avatar-text-grandchild',
+                    eventDate: '2026-07-24',
+                    name: '测试：头像下的文本孙节点',
+                    subtitle: '用于检查头像到文本的连线',
+                    height: 41,
+                    edge: createEdge('peer', '头像的文本子节点', {
+                      stroke: '#7c3aed'
+                    })
+                  }
+                ]
+              },
+              {
+                id: 'mixed-node-test-text-child',
+                eventDate: '2026-07-24',
+                name: '测试：文本子节点',
+                subtitle: '与头像子节点同级',
+                height: 41,
+                edge: createEdge('peer', '文本分支', {
+                  stroke: '#7c3aed'
+                })
+              }
+            ]
+          },
+          {
+            id: 'layout-test-avatar-parent',
+            eventDate: '2026-07-24',
+            name: '高头像父节点（140px）',
+            subtitle: '布局测试：父节点明显高于文本叶子',
+            tag: '布局高度测试',
+            variant: 'avatar',
+            width: 108,
+            height: 140,
+            edge: createEdge('peer', '高度差测试', {
+              stroke: '#7c3aed',
+              labelColor: '#6d28d9',
+              labelBackground: '#f5f3ff'
+            }),
+            children: [
+              {
+                id: 'layout-test-short-leaf-28',
+                name: '矮文本叶子 A（28px）',
+                subtitle: '验证上边界',
+                height: 28,
+                style: {
+                  padding: '4px 10px'
+                },
+                edge: createEdge('peer', '28px 叶子', {
+                  stroke: '#7c3aed'
+                })
+              },
+            
+            ]
+          },
+          {
+            id: 'layout-test-following-leaf',
+            eventDate: '2026-07-24',
+            name: '相邻对照节点（30px）',
+            subtitle: '不应与高头像父节点或连线重叠',
+            tag: '布局高度测试',
+            height: 30,
+            style: {
+              padding: '4px 10px'
+            },
+            edge: createEdge('peer', '相邻节点', {
+              stroke: '#7c3aed',
+              labelColor: '#6d28d9',
+              labelBackground: '#f5f3ff'
+            })
+          },
+          {
             id: 'father',
             eventDate: '2026-01-03',
             name: '张建国',
