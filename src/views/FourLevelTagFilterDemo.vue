@@ -8,13 +8,24 @@
       <article v-for="(ids, index) in selected" :key="index"><span>LEVEL 0{{ index + 1 }}</span><h3>{{ names[index] }} ID <small>{{ ids.length }} 项</small></h3><pre>{{ JSON.stringify(ids, null, 2) }}</pre></article>
     </div>
     <p class="tag-filter-demo__note">每级“重置”清空当前级及下级；“全部重置”清空四个数组，仅保留一级标签。</p>
+
+    <el-divider content-position="left">示例代码</el-divider>
+
+    <code-viewer
+      :code="sampleCode"
+      language="xml"
+      title="FourLevelTagFilter 用法示例"
+      max-height="420px"
+    />
   </section>
 </template>
 <script>
 import FourLevelTagFilter from '../components/FourLevelTagFilter/FourLevelTagFilter.vue'
+import CodeViewer from '../components/CodeViewer/CodeViewer.vue'
+import { buildSfcCode } from '../utils/sampleCode'
 export default {
   name: 'FourLevelTagFilterDemo',
-  components: { FourLevelTagFilter },
+  components: { FourLevelTagFilter, CodeViewer },
   data() {
     return {
       selected: [[], [], [], []],
@@ -40,6 +51,29 @@ export default {
     handleChange(level1Ids, level2Ids, level3Ids, level4Ids) {
       // 四个独立数组可以直接用于筛选接口参数。
       this.selected = [level1Ids, level2Ids, level3Ids, level4Ids]
+    }
+  },
+  computed: {
+    sampleCode() {
+      return buildSfcCode({
+        tag: 'four-level-tag-filter',
+        componentName: 'FourLevelTagFilter',
+        importPath: '@/components/FourLevelTagFilter/FourLevelTagFilter.vue',
+        attrs: [
+          'v-model="selected"',
+          ':data="tags"',
+          '@change="handleChange"'
+        ],
+        data: {
+          selected: this.selected,
+          tags: this.tags
+        },
+        methods: [
+          'handleChange(level1Ids, level2Ids, level3Ids, level4Ids) {',
+          '  this.selected = [level1Ids, level2Ids, level3Ids, level4Ids]',
+          '}'
+        ]
+      })
     }
   }
 }

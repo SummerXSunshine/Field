@@ -1,14 +1,14 @@
 <template>
   <section
     v-loading="loading"
-    class="configurable-info-display"
+    class="view-form"
     :class="{
-      'configurable-info-display--bordered': resolvedBordered
+      'view-form--bordered': resolvedBordered
     }"
   >
     <el-row
       v-if="visibleFields.length"
-      class="configurable-info-display__row"
+      class="view-form__row"
       :gutter="resolvedGutter"
     >
       <el-col
@@ -18,18 +18,18 @@
         :xs="24"
       >
         <div
-          class="configurable-info-display__item"
+          class="view-form__item"
           :class="item.className"
           @click="handleFieldClick(item)"
         >
           <span
-            class="configurable-info-display__label"
+            class="view-form__label"
             :style="getLabelStyle()"
           >
             {{ item.label || resolvedEmptyText }}
           </span>
 
-          <span class="configurable-info-display__value">
+          <span class="view-form__value">
             <slot
               :name="item.slot || 'field-value'"
               :item="item"
@@ -46,7 +46,7 @@
 
     <div
       v-else
-      class="configurable-info-display__empty"
+      class="view-form__empty"
     >
       {{ resolvedEmptyText }}
     </div>
@@ -59,7 +59,7 @@ function hasOwn(target, key) {
 }
 
 export default {
-  name: 'ConfigurableInfoDisplay',
+  name: 'ViewForm',
   props: {
     data: {
       type: Object,
@@ -182,7 +182,7 @@ export default {
 </script>
 
 <style scoped>
-.configurable-info-display {
+.view-form {
   box-sizing: border-box;
   width: 100%;
   padding: 12px 24px;
@@ -192,16 +192,16 @@ export default {
   font-family: Arial, "Microsoft YaHei", sans-serif;
 }
 
-.configurable-info-display--bordered {
+.view-form--bordered {
   border: 1px solid #e4e7ed;
 }
 
-.configurable-info-display__row {
+.view-form__row {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
 
-.configurable-info-display__item {
+.view-form__item {
   display: flex;
   align-items: flex-start;
   min-height: 24px;
@@ -210,14 +210,14 @@ export default {
   line-height: 24px;
 }
 
-.configurable-info-display__label {
+.view-form__label {
   flex: 0 0 96px;
   box-sizing: border-box;
   padding-right: 12px;
   color: #909399;
 }
 
-.configurable-info-display__value {
+.view-form__value {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -225,7 +225,7 @@ export default {
   white-space: pre-wrap;
 }
 
-.configurable-info-display__empty {
+.view-form__empty {
   min-height: 44px;
   color: #909399;
   font-size: 14px;
@@ -234,7 +234,7 @@ export default {
 }
 
 @media (max-width: 767px) {
-  .configurable-info-display {
+  .view-form {
     padding-right: 20px;
     padding-left: 20px;
   }

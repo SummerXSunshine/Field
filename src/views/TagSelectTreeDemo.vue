@@ -18,13 +18,24 @@
         <pre>{{ JSON.stringify(selected, null, 2) }}</pre>
       </aside>
     </div>
+
+    <el-divider content-position="left">示例代码</el-divider>
+
+    <code-viewer
+      :code="sampleCode"
+      language="xml"
+      title="TagSelectTree 用法示例"
+      max-height="420px"
+    />
   </section>
 </template>
 <script>
 import TagSelectTree from '../components/TagSelectTree/TagSelectTree.vue'
+import CodeViewer from '../components/CodeViewer/CodeViewer.vue'
+import { buildSfcCode } from '../utils/sampleCode'
 export default {
   name: 'TagSelectTreeDemo',
-  components: { TagSelectTree },
+  components: { TagSelectTree, CodeViewer },
   data() {
     return {
       selected: [], disabled: false,
@@ -36,6 +47,23 @@ export default {
         { id: 'region', label: '区域标签', children: [{ id: 'east', label: '华东地区' }, { id: 'south', label: '华南地区' }, { id: 'north', label: '华北地区' }] },
         { id: 'status', label: '跟进状态', children: [{ id: 'focus', label: '重点关注' }, { id: 'ongoing', label: '持续跟进' }, { id: 'archived', label: '已归档（禁用）', disabled: true }] }
       ]
+    }
+  },
+  computed: {
+    sampleCode() {
+      return buildSfcCode({
+        tag: 'tag-select-tree',
+        componentName: 'TagSelectTree',
+        importPath: '@/components/TagSelectTree/TagSelectTree.vue',
+        attrs: [
+          'v-model="selected"',
+          ':data="tags"'
+        ],
+        data: {
+          selected: this.selected,
+          tags: this.tags
+        }
+      })
     }
   }
 }

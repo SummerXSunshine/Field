@@ -1,5 +1,5 @@
 <template>
-  <div class="configurable-element-form">
+  <div class="base-form">
     <el-form
       ref="form"
       :model="localModel"
@@ -9,9 +9,9 @@
       :size="normalizedConfig.size"
       :inline="normalizedConfig.inline"
       :disabled="normalizedConfig.disabled"
-      class="configurable-element-form__form"
+      class="base-form__form"
     >
-      <el-row :gutter="normalizedConfig.gutter" class="configurable-element-form__row">
+      <el-row :gutter="normalizedConfig.gutter" class="base-form__row">
         <el-col
           v-for="field in visibleFields"
           :key="field.id || field.prop"
@@ -65,7 +65,7 @@
       </el-row>
     </el-form>
 
-    <section v-if="showModelPreview" class="configurable-element-form__model" aria-label="当前表单数据">
+    <section v-if="showModelPreview" class="base-form__model" aria-label="当前表单数据">
       <h3>当前数据</h3>
       <pre>{{ formattedModel }}</pre>
     </section>
@@ -86,7 +86,7 @@ const defaultConfig = () => ({
 })
 
 export default {
-  name: 'ConfigurableElementForm',
+  name: 'BaseForm',
   props: {
     value: {
       type: Object,
@@ -305,28 +305,28 @@ export default {
 </script>
 
 <style scoped>
-.configurable-element-form__form {
+.base-form__form {
   max-width: 720px;
 }
 
-.configurable-element-form__form ::v-deep .el-select,
-.configurable-element-form__form ::v-deep .el-date-editor.el-input,
-.configurable-element-form__form ::v-deep .el-input-number {
+.base-form__form ::v-deep .el-select,
+.base-form__form ::v-deep .el-date-editor.el-input,
+.base-form__form ::v-deep .el-input-number {
   width: 100%;
 }
 
-.configurable-element-form__model {
+.base-form__model {
   margin-top: 24px;
   padding-top: 18px;
   border-top: 1px solid #e2e8f0;
 }
 
-.configurable-element-form__model h3 {
+.base-form__model h3 {
   margin: 0 0 10px;
   font-size: 14px;
 }
 
-.configurable-element-form__model pre {
+.base-form__model pre {
   margin: 0;
   padding: 14px;
   overflow: auto;

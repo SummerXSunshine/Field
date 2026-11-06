@@ -179,12 +179,6 @@ export default {
               icon: 'el-icon-s-grid'
             },
             {
-              name: 'ConfigurableInfoDisplay',
-              description: '读取配置展示一列或两列文本字段。',
-              path: '/components/configurable-info-display',
-              icon: 'el-icon-tickets'
-            },
-            {
               name: 'AvatarInfoDisplay',
               description: '头像、三项摘要信息和标签行。',
               path: '/components/avatar-info-display',
@@ -203,6 +197,12 @@ export default {
               description: '基于 Element UI 的可配置基础表单。',
               path: '/components/element-form-demo',
               icon: 'el-icon-edit-outline'
+            },
+            {
+              name: 'ViewForm',
+              description: '表单填写展示项，实时生成配置并预览的文本信息展示。',
+              path: '/components/view-form-demo',
+              icon: 'el-icon-view'
             },
             {
               name: '标签选择树',
@@ -296,7 +296,7 @@ export default {
 .component-home {
   display: flex;
   width: 100%;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   background: #f4f7fb;
   color: #1f2937;
@@ -306,7 +306,7 @@ export default {
 .component-home__sidebar {
   flex: 0 0 264px;
   box-sizing: border-box;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   border-right: 1px solid #e5eaf2;
   background: #ffffff;
@@ -450,7 +450,7 @@ export default {
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  height: 100vh;
+  height: 100%;
 }
 
 .component-home__topbar {
@@ -507,6 +507,7 @@ export default {
 }
 
 .component-home__panel {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -637,7 +638,7 @@ export default {
   .component-home {
     display: block;
     height: auto;
-    min-height: 100vh;
+    min-height: 100%;
     overflow: visible;
   }
 

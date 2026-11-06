@@ -653,7 +653,7 @@ export default {
 
 <style scoped>
 .echart-page {
-  position: fixed;
+  position: absolute;
   inset: 0;
   height: auto;
   box-sizing: border-box;

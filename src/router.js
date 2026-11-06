@@ -53,6 +53,11 @@ export default new Router({
           component: () => import('./views/ElementFormDemo.vue')
         },
         {
+          path: 'components/view-form-demo',
+          name: 'view-form-demo',
+          component: () => import('./views/ViewFormDemo.vue')
+        },
+        {
           path: 'components/hover-popover-demo',
           name: 'hover-popover-demo',
           component: () => import('./views/HoverPopoverDemo.vue')
@@ -71,11 +76,6 @@ export default new Router({
           path: 'components/single-replace-upload',
           name: 'single-replace-upload-demo',
           component: () => import('./views/SingleReplaceUploadDemo.vue')
-        },
-        {
-          path: 'components/configurable-info-display',
-          name: 'configurable-info-display-demo',
-          component: () => import('./views/ConfigurableInfoDisplayDemo.vue')
         },
         {
           path: 'components/avatar-info-display',

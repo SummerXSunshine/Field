@@ -1,8 +1,8 @@
-# ConfigurableInfoDisplay 配置化文本信息展示
+# ViewForm 配置化文本信息展示
 
 ## 组件用途
 
-ConfigurableInfoDisplay 是一个纯文本信息展示组件。组件只接收业务数据 data 和展示配置 config，不绑定姓名、单位、电话等具体业务字段。
+ViewForm 是一个纯文本信息展示组件。组件只接收业务数据 data 和展示配置 config，不绑定姓名、单位、电话等具体业务字段。
 
 主要能力：
 
@@ -18,18 +18,18 @@ ConfigurableInfoDisplay 是一个纯文本信息展示组件。组件只接收�
 
 ~~~vue
 <template>
-  <configurable-info-display
+  <view-form
     :data="detailData"
     :config="displayConfig"
   />
 </template>
 
 <script>
-import ConfigurableInfoDisplay from '@/components/ConfigurableInfoDisplay/ConfigurableInfoDisplay.vue'
+import ViewForm from '@/components/ViewForm/ViewForm.vue'
 
 export default {
   components: {
-    ConfigurableInfoDisplay
+    ViewForm
   },
   data() {
     return {
@@ -273,14 +273,14 @@ labelWidth 只能在 config 中统一配置：
 默认字段值插槽：
 
 ~~~vue
-<configurable-info-display
+<view-form
   :data="detailData"
   :config="displayConfig"
 >
   <template #field-value="{ value, item, rawValue, data }">
     <span>{{ value }}</span>
   </template>
-</configurable-info-display>
+</view-form>
 ~~~
 
 单独配置插槽：

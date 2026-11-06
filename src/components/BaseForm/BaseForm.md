@@ -1,8 +1,8 @@
-# ConfigurableElementForm
+# BaseForm
 
 ## 用途
 
-`ConfigurableElementForm` 是一个基于 Element UI 的 Vue 2 可配置表单组件。它负责把字段配置渲染成 `el-form`、`el-row`、`el-col` 和对应的 Element UI 输入组件，适合在 demo、低代码配置页或动态表单场景中复用。
+`BaseForm`（原名 `ConfigurableElementForm`）是一个基于 Element UI 的 Vue 2 可配置表单组件。它负责把字段配置渲染成 `el-form`、`el-row`、`el-col` 和对应的 Element UI 输入组件，适合在 demo、低代码配置页或动态表单场景中复用。
 
 ## Props
 
@@ -38,7 +38,7 @@
 ## 使用示例
 
 ```vue
-<configurable-element-form
+<base-form
   v-model="formModel"
   :fields="fields"
   :config="formConfig"

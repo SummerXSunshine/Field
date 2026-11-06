@@ -1,9 +1,38 @@
 <template>
   <main class="element-form-page">
+    <section class="preview-panel">
+      <div class="preview-shell">
+        <header class="preview-shell__header">
+          <h2>{{ formConfig.title || '基础表单' }}</h2>
+          <span>{{ visibleFields.length }} 个字段</span>
+        </header>
+
+        <base-form
+          ref="form"
+          v-model="formModel"
+          :fields="fields"
+          :config="formConfig"
+          :options-data="selectOptions"
+          show-model-preview
+          @submit="handleFormSubmit"
+          @reset="resetFormModel"
+        />
+
+        <el-divider content-position="left">示例代码</el-divider>
+
+        <code-viewer
+          :code="sampleCode"
+          language="xml"
+          title="BaseForm 用法示例"
+          max-height="460px"
+        />
+      </div>
+    </section>
+
     <aside class="config-panel" aria-label="Element UI 表单配置">
       <header class="config-panel__header">
         <h1>Element UI 表单</h1>
-        <p>配置表单结构和数据，右侧实时预览。</p>
+        <p>配置表单结构和数据，左侧实时预览。</p>
       </header>
 
       <section class="config-panel__section">
@@ -171,31 +200,13 @@
         <p v-if="copyStatus" class="copy-status">{{ copyStatus }}</p>
       </section>
     </aside>
-
-    <section class="preview-panel">
-      <div class="preview-shell">
-        <header class="preview-shell__header">
-          <h2>{{ formConfig.title || '基础表单' }}</h2>
-          <span>{{ visibleFields.length }} 个字段</span>
-        </header>
-
-        <configurable-element-form
-          ref="form"
-          v-model="formModel"
-          :fields="fields"
-          :config="formConfig"
-          :options-data="selectOptions"
-          show-model-preview
-          @submit="handleFormSubmit"
-          @reset="resetFormModel"
-        />
-      </div>
-    </section>
   </main>
 </template>
 
 <script>
-import ConfigurableElementForm from '../components/ConfigurableElementForm/ConfigurableElementForm.vue'
+import BaseForm from '../components/BaseForm/BaseForm.vue'
+import CodeViewer from '../components/CodeViewer/CodeViewer.vue'
+import { buildSfcCode } from '../utils/sampleCode'
 
 const defaultFields = () => [
   {
@@ -292,7 +303,8 @@ const defaultFormConfig = () => ({
 export default {
   name: 'ElementFormDemo',
   components: {
-    ConfigurableElementForm
+    BaseForm,
+    CodeViewer
   },
   data() {
     const formModel = defaultModel()
@@ -316,6 +328,26 @@ export default {
     },
     generatedDefaultFieldsText() {
       return JSON.stringify(this.fields, null, 2)
+    },
+    sampleCode() {
+      return buildSfcCode({
+        tag: 'base-form',
+        componentName: 'BaseForm',
+        importPath: '@/components/BaseForm/BaseForm.vue',
+        attrs: [
+          'v-model="formModel"',
+          ':fields="fields"',
+          ':config="formConfig"',
+          ':options-data="selectOptions"',
+          'show-model-preview'
+        ],
+        data: {
+          formModel: this.formModel,
+          fields: this.fields,
+          formConfig: this.formConfig,
+          selectOptions: this.selectOptions
+        }
+      })
     }
   },
   watch: {
@@ -480,11 +512,10 @@ export default {
 
 <style scoped>
 .element-form-page {
-  position: fixed;
-  inset: 0;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 420px 1fr;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  height: 100%;
   overflow: hidden;
   background: #f1f5f9;
   color: #0f172a;
@@ -492,13 +523,12 @@ export default {
 }
 
 .config-panel {
-  min-width: 0;
+  box-sizing: border-box;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  box-sizing: border-box;
   padding: 24px;
-  border-right: 1px solid #dbe3ef;
+  border-left: 1px solid #dbe3ef;
   background: #ffffff;
 }
 
@@ -520,8 +550,9 @@ export default {
 
 .config-panel__section {
   display: grid;
+  align-content: start;
   gap: 12px;
-  padding: 16px 0;
+  padding: 14px 0;
   border-top: 1px solid #e2e8f0;
 }
 
@@ -598,7 +629,7 @@ export default {
 }
 
 .json-editor {
-  min-height: 180px;
+  min-height: 140px;
   padding: 10px;
   resize: vertical;
   font-family: Consolas, "Courier New", monospace;
@@ -648,18 +679,16 @@ export default {
 }
 
 .preview-panel {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  overflow: auto;
   box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
   padding: 24px;
 }
 
 .preview-shell {
-  max-width: 920px;
-  min-height: calc(100vh - 48px);
   box-sizing: border-box;
+  min-height: 100%;
   padding: 24px;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -688,16 +717,19 @@ export default {
 @media (max-width: 900px) {
   .element-form-page {
     grid-template-columns: 1fr;
-    grid-template-rows: 420px 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100%;
   }
 
   .config-panel {
-    border-right: 0;
-    border-bottom: 1px solid #dbe3ef;
+    height: auto;
+    max-height: 50%;
+    border-top: 1px solid #dbe3ef;
+    border-left: 0;
   }
 
   .preview-shell {
-    min-height: auto;
+    min-height: 0;
   }
 }
 </style>
